@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { signTex, drawT, fitText, FONT, roundRect, radialTex } from './util.js?v=20261031-1630';
+import { signTex, drawT, fitText, FONT, roundRect, radialTex } from './util.js?v=20261031-1730';
 
 const M4 = new THREE.Matrix4(), Qt = new THREE.Quaternion(), Vv = new THREE.Vector3(), Sv = new THREE.Vector3(), Eu = new THREE.Euler();
 function colored(geo, color, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) {

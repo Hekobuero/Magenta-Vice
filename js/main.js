@@ -6,13 +6,13 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
-import { clamp, lerp, smooth, rng, pick, angDiff, canvas, tex, signTex, drawT, fitText, FONT, setAniso, fmtEUR, fmtEURc, radialTex, roundRect, drawHeko, HEKO_RATIO } from './util.js?v=20261031-1630';
-import { world, buildWorld, buildSky, updateTOD, TOD, GRID, RHW, PED_OFF, LAND, ISLAND, CAUSE, BEACH_X, DEEP_X, BRANDS, circleHit, queryColliders, lineBlocked, surfaceY, isDeep, onLand, sky } from './world.js?v=20261031-1630';
-import { makeVehicle, makeCharacter, poseCharacter, setDriver, VTYPES, paintMat, sharedMats, setDetail } from './models.js?v=20261031-1630';
-import * as AU from './audio.js?v=20261031-1630';
-import { TARIFFS, CATEGORIES } from './tarife.js?v=20261031-1630';
+import { clamp, lerp, smooth, rng, pick, angDiff, canvas, tex, signTex, drawT, fitText, FONT, setAniso, fmtEUR, fmtEURc, radialTex, roundRect, drawHeko, HEKO_RATIO } from './util.js?v=20261031-1730';
+import { world, buildWorld, buildSky, updateTOD, TOD, GRID, RHW, PED_OFF, LAND, ISLAND, CAUSE, BEACH_X, DEEP_X, BRANDS, circleHit, queryColliders, lineBlocked, surfaceY, isDeep, onLand, sky } from './world.js?v=20261031-1730';
+import { makeVehicle, makeCharacter, poseCharacter, setDriver, VTYPES, paintMat, sharedMats, setDetail } from './models.js?v=20261031-1730';
+import * as AU from './audio.js?v=20261031-1730';
+import { TARIFFS, CATEGORIES } from './tarife.js?v=20261031-1730';
 
-export const VERSION = '20261031-1630';
+export const VERSION = '20261031-1730';
 const $ = id => document.getElementById(id);
 const PARAMS = new URLSearchParams(location.search);
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
@@ -35,7 +35,7 @@ let qSel = { ultra: 'hoch', spar: 'niedrig' }[PARAMS.get('q') || SAVE.quality] |
 if (qSel !== 'auto' && !QUALITY[qSel]) qSel = 'auto';
 let qKey = qSel === 'auto' ? autoQ() : qSel;
 let Q = QUALITY[qKey];
-const DPR = window.devicePixelRatio || 1;
+let DPR = window.devicePixelRatio || 1;
 let pr = PARAMS.has('pr') ? +PARAMS.get('pr') : Math.min(DPR, Q.maxPR);
 const fixedPR = PARAMS.has('pr');
 
@@ -58,7 +58,7 @@ const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.2, 32
 
 let composer, bloom, renderPass, grade, aoPass = null;
 function setupComposer() {
-  const w = innerWidth, h = innerHeight;
+  const [w, h] = viewSize();
   const rt = new THREE.WebGLRenderTarget(w * pr, h * pr, { type: THREE.HalfFloatType, samples: isMobile && pr >= 1.75 ? Math.min(2, Q.samples) : Q.samples });
   composer = new EffectComposer(renderer, rt);
   composer.setPixelRatio(pr); composer.setSize(w, h);
@@ -97,16 +97,60 @@ function applyQuality(k) {
   pr = fixedPR ? pr : Math.min(DPR, Q.maxPR);
   sunL.shadow.mapSize.set(Q.shadow, Q.shadow); if (sunL.shadow.map) { sunL.shadow.map.dispose(); sunL.shadow.map = null; }
   sc.left = -Q.shadowR; sc.right = Q.shadowR; sc.top = Q.shadowR; sc.bottom = -Q.shadowR; sc.updateProjectionMatrix();
-  composer.dispose?.(); setupComposer(); onResize();
+  composer.dispose?.(); setupComposer(); onResize(true);
 }
-function onResize() {
-  const w = innerWidth, h = innerHeight;
+// ---- Viewport / Drehen / Vollbild: robust neu vermessen (iOS meldet nach dem Drehen oft kurz alte Größen)
+function viewSize() {
+  const r = glCanvas.getBoundingClientRect();
+  let w = Math.round(r.width), h = Math.round(r.height);
+  if (!(w > 0 && h > 0)) { const vv = window.visualViewport; w = Math.round(vv ? vv.width : innerWidth); h = Math.round(vv ? vv.height : innerHeight); }
+  return [Math.max(1, w), Math.max(1, h)];
+}
+let lastVW = 0, lastVH = 0, lastPR = 0;
+function onResize(force) {
+  const [w, h] = viewSize();
+  const d = window.devicePixelRatio || 1;
+  if (d !== DPR) { DPR = d; if (!fixedPR) pr = Math.min(DPR, Q.maxPR); }
+  if (!fixedPR) pr = Math.min(pr, Math.min(DPR, Q.maxPR));
+  if (force !== true && w === lastVW && h === lastVH && pr === lastPR) return;
+  lastVW = w; lastVH = h; lastPR = pr;
   camera.aspect = w / h; camera.updateProjectionMatrix();
   renderer.setPixelRatio(pr); renderer.setSize(w, h, false);
   composer.setPixelRatio(pr); composer.setSize(w, h);
+  if (aoPass) aoPass.setSize(Math.round(w * pr), Math.round(h * pr));
   sizeMinimap(); document.body.classList.toggle('portrait', h > w);
+  { const bm = document.getElementById('bigmap'); if (bm && bm.offsetParent && typeof drawBigMap === 'function') requestAnimationFrame(() => drawBigMap(bm)); }
+  window.__mvView = { w, h, pr, bw: glCanvas.width, bh: glCanvas.height, aspect: camera.aspect };
 }
-addEventListener('resize', onResize);
+function resetTouches() {
+  try { void joy; } catch (e) { return; }
+  joy.id = null; joy.x = joy.y = 0; look.id = null;
+  joyKnob.style.transform = ''; joyEl.classList.remove('on'); joyEl.style.left = ''; joyEl.style.top = '';
+  for (const el of document.querySelectorAll('.tbtn.down')) el.classList.remove('down');
+  inp.sprint = false; inp.hb = false; inp.punch = false; inp.actHeld = false;
+}
+let settleRAF = 0;
+function scheduleResize(rotated) {
+  if (rotated) resetTouches();
+  onResize();
+  // Mehrfach nachmessen, bis die Größe ~6 Frames stabil ist (max. ~1,5 s)
+  cancelAnimationFrame(settleRAF);
+  let stable = 0, n = 0, pw = -1, ph = -1;
+  const tick = () => {
+    const [w, h] = viewSize();
+    if (w === pw && h === ph) stable++; else { stable = 0; pw = w; ph = h; onResize(); }
+    if (stable < 6 && ++n < 90) settleRAF = requestAnimationFrame(tick);
+  };
+  settleRAF = requestAnimationFrame(tick);
+  for (const t of [120, 350, 700]) setTimeout(() => onResize(), t);
+}
+addEventListener('resize', () => scheduleResize(false));
+addEventListener('orientationchange', () => scheduleResize(true));
+if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener('change', () => scheduleResize(true));
+if (window.visualViewport) { visualViewport.addEventListener('resize', () => scheduleResize(false)); visualViewport.addEventListener('scroll', () => { if (scrollY || scrollX) scrollTo(0, 0); }); }
+document.addEventListener('fullscreenchange', () => scheduleResize(true));
+document.addEventListener('webkitfullscreenchange', () => scheduleResize(true));
+addEventListener('pageshow', () => scheduleResize(false));
 
 // ---------------------------------------------------------------- Welt
 const forcedHour = PARAMS.has('hour') ? clamp(parseFloat(PARAMS.get('hour')) || 0, 0, 24) : null;
@@ -499,14 +543,15 @@ function onTouchStart(e) {
   if (!G.started || G.paused) return;
   for (const t of e.changedTouches) {
     if (t.target.closest && t.target.closest('.tbtn, #hudPhone, #phone, .chip')) continue;
-    if (t.clientX < innerWidth * 0.42 && joy.id === null) { joy.id = t.identifier; joy.ox = t.clientX; joy.oy = t.clientY; joy.x = joy.y = 0; joyEl.style.left = t.clientX + 'px'; joyEl.style.top = t.clientY + 'px'; joyEl.classList.add('on'); }
+    const lr = touchLayer.getBoundingClientRect();
+    if (t.clientX - lr.left < lr.width * 0.42 && joy.id === null) { joy.id = t.identifier; joy.ox = t.clientX; joy.oy = t.clientY; joy.x = joy.y = 0; joy.r = Math.max(40, (joyEl.getBoundingClientRect().width || 120) * 0.46); joyEl.style.left = (t.clientX - lr.left) + 'px'; joyEl.style.top = (t.clientY - lr.top) + 'px'; joyEl.classList.add('on'); }
     else if (look.id === null) { look.id = t.identifier; look.x = t.clientX; look.y = t.clientY; }
   }
   e.preventDefault();
 }
 function onTouchMove(e) {
   for (const t of e.changedTouches) {
-    if (t.identifier === joy.id) { const dx = t.clientX - joy.ox, dy = t.clientY - joy.oy, l = Math.hypot(dx, dy), m = 55, k = l > m ? m / l : 1; joy.x = dx * k / m; joy.y = dy * k / m; joyKnob.style.transform = `translate(${dx * k}px,${dy * k}px)`; }
+    if (t.identifier === joy.id) { const dx = t.clientX - joy.ox, dy = t.clientY - joy.oy, l = Math.hypot(dx, dy), m = joy.r || 55, k = l > m ? m / l : 1; joy.x = dx * k / m; joy.y = dy * k / m; joyKnob.style.transform = `translate(${dx * k}px,${dy * k}px)`; }
     if (t.identifier === look.id) { inp.camDX += (t.clientX - look.x) * 1.6; inp.camDY += (t.clientY - look.y) * 1.6; look.x = t.clientX; look.y = t.clientY; inp.lastCam = G.time; }
   }
   e.preventDefault();
@@ -1045,7 +1090,7 @@ function updateLabels(dt) {
     _v3.set(L.obj.x, (L.obj.y || 0) + L.y + rise, L.obj.z).project(camera);
     const vis = _v3.z < 1 && Math.abs(_v3.x) < 1.1 && Math.abs(_v3.y) < 1.1;
     L.el.style.display = vis ? '' : 'none';
-    if (vis) L.el.style.transform = `translate(-50%,-100%) translate(${(_v3.x * 0.5 + 0.5) * innerWidth}px,${(-_v3.y * 0.5 + 0.5) * innerHeight}px)`;
+    if (vis) L.el.style.transform = `translate(-50%,-100%) translate(${(_v3.x * 0.5 + 0.5) * (lastVW || innerWidth)}px,${(-_v3.y * 0.5 + 0.5) * (lastVH || innerHeight)}px)`;
     L.el.style.opacity = Math.min(1, L.t * 3);
   }
   // Rangerz-Namensschilder in der Nähe
@@ -1206,7 +1251,7 @@ function showPhonePage(page) {
     $('statList').innerHTML = [['Provision gesamt', fmtEURc(S.earned)], ['Kontostand', fmtEURc(G.money)], ['Verträge abgegeben', S.delivered], ['Verträge dabei', G.contracts.length], ['Shops ausgeraubt', S.robbed], ['Rangerz umgehauen', S.rangers], ['Autos geklaut', S.stolen], ['Polizei abgehängt', S.escapes], ['Schläge', S.punches]].map(([a, b]) => `<li><span>${a}</span><b>${b}</b></li>`).join('');
   }
   if (page === 'radio') $('stationList').innerHTML = AU.STATIONS.map((s, i) => `<button class="pbtn ${i === AU.A.station ? 'sel' : ''}" data-st="${i}"><b>${s.name}</b><span>${s.sub}</span></button>`).join('');
-  if (page === 'settings') { for (const b of document.querySelectorAll('[data-q]')) b.classList.toggle('sel', b.dataset.q === qSel); $('btnMute').textContent = AU.A.on ? '🔊 Ton: AN' : '🔇 Ton: AUS'; $('prInfo').textContent = `Auflösung: ${Math.round(innerWidth * pr)}×${Math.round(innerHeight * pr)} px (${pr.toFixed(2)}×)`; }
+  if (page === 'settings') { for (const b of document.querySelectorAll('[data-q]')) b.classList.toggle('sel', b.dataset.q === qSel); $('btnMute').textContent = AU.A.on ? '🔊 Ton: AN' : '🔇 Ton: AUS'; $('prInfo').textContent = `Auflösung: ${glCanvas.width}×${glCanvas.height} px (${pr.toFixed(2)}×)`; }
 }
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-page],[data-st],[data-q],#btnMute,#btnClose,#btnReset,#phoneBack');
@@ -1384,7 +1429,7 @@ $('verLbl').textContent = 'Version ' + VERSION;
 }
 
 populate();
-onResize();
+onResize(true);
 $('loading').classList.add('hidden'); $('btnPlay').disabled = false;
 requestAnimationFrame(frame);
 
