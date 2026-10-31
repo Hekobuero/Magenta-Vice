@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="mv-build" content="20261031-1630">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#E20074">
+<title>Magenta Vice – von HEKO präsentiert</title>
+<link rel="icon" href="favicon.svg?v=20261031-1630" type="image/svg+xml">
+<link rel="stylesheet" href="style.css?v=20261031-1630">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="touchLayer"></div>
+<div id="labels"></div>
+<div id="flash"></div>
+
+<!-- Titel -->
+<section id="title">
+  <div class="t-sun"></div>
+  <div class="t-grid"></div>
+  <div class="t-box">
+    <div class="t-pres"><span>von</span><canvas id="hekoTitle"></canvas><span>präsentiert</span></div>
+    <h1 class="t-logo"><span class="m">MAGENTA</span><span class="v">VICE</span></h1>
+    <div class="t-sub">Die Vertriebs-Open-World · Miami Beach</div>
+    <div class="t-claim">Du bist Telekom-Mitarbeiter. Sammle Verträge, räum die Konkurrenz ab, verjag die Rangerz-Drücker – und kassiere Provision.</div>
+    <button id="btnPlay" class="btn big" disabled>▶ SPIELEN</button>
+    <div id="loading" class="t-load">Stadt wird gebaut …</div>
+    <div id="saveInfo" class="t-save"></div>
+    <div class="t-ctrl">
+      <div class="desk"><b>PC:</b> WASD laufen/fahren · Shift rennen · Maus schauen · Klick/Q schlagen · F einsteigen/Auto klauen · E halten ausrauben · Leertaste Handbremse · R Radio · M Karte · Tab Handy</div>
+      <div class="mob"><b>Handy (quer halten):</b> Linker Daumen Joystick · rechts wischen Kamera · Tasten rechts für Schlagen, Einsteigen, Sprint · 📱 Menü</div>
+    </div>
+    <div class="t-rot">📱↻ Für das beste Erlebnis Handy quer halten</div>
+  </div>
+  <div id="verLbl" class="ver"></div>
+  <div class="t-legal">Parodie. Alle Konkurrenz-Namen sind frei erfunden.</div>
+</section>
+
+<!-- HUD -->
+<section id="hud" class="hidden">
+  <canvas id="minimap"></canvas>
+  <div id="mission"><div id="misTitle"></div><div id="misText"></div></div>
+  <div id="stats">
+    <div id="clock">12:00</div>
+    <div id="money">0,00 €</div>
+    <div id="stars"></div>
+    <div class="row2"><div id="contractsBox" title="Verträge dabei"><span class="doc"></span><b id="contracts">0</b></div><div class="hp"><i id="hpBar"></i></div></div>
+    <div id="moneyPop"></div>
+  </div>
+  <button id="hudPhone" class="chip" aria-label="Handy-Menü">📱</button>
+  <div id="help"></div>
+  <div id="big"><div id="bigT"></div><div id="bigS"></div></div>
+  <div id="radio"></div>
+  <div id="carHud"><div class="spd"><b id="speed">0</b><span>km/h</span></div><div class="cn" id="carName"></div><div class="chp"><i id="carHp"></i></div></div>
+  <div id="robBar"><div id="robTxt"></div><div class="bar"><i id="robFill"></i></div></div>
+  <div id="bustBar"><span>FESTNAHME!</span><div class="bar"><i id="bustFill"></i></div></div>
+  <div id="keyHint"></div>
+  <div id="fps"></div>
+  <!-- Touch -->
+  <div id="joy"><div id="joyKnob"></div></div>
+  <div id="tbtns">
+    <button id="bAct" class="tbtn act hide">💰 AUSRAUBEN<small>halten</small></button>
+    <button id="bEnter" class="tbtn enter hide">🚗</button>
+    <button id="bPunch" class="tbtn punch">👊</button>
+    <button id="bSprint" class="tbtn sprint">🏃</button>
+    <button id="bRadio" class="tbtn radio">📻</button>
+  </div>
+</section>
+
+<!-- Handy -->
+<section id="phone">
+  <div class="ph">
+    <div class="ph-top"><span>MagentaPhone</span><span class="ph-net">5G ▮▮▮▮</span></div>
+    <div id="pp-home" class="ppage on">
+      <div class="ph-grid">
+        <button class="app" data-page="map"><i>🗺️</i>Karte</button>
+        <button class="app" data-page="missions"><i>📋</i>Aufträge</button>
+        <button class="app" data-page="radio"><i>📻</i>Radio</button>
+        <button class="app" data-page="stats"><i>📈</i>Statistik</button>
+        <button class="app" data-page="settings"><i>⚙️</i>Grafik &amp; Ton</button>
+        <button class="app" data-page="help"><i>❓</i>Steuerung</button>
+      </div>
+      <button id="btnClose" class="btn">▶ WEITER</button>
+    </div>
+    <div id="pp-map" class="ppage"><canvas id="bigmap"></canvas><div class="legend"><span><i class="lg t">T</i>Telekom Shop (Abgabe)</span><span><i class="lg s">€</i>Konkurrenz (Überfall)</span><span><i class="lg r"></i>Rangerz</span><span><i class="lg c"></i>Vertrag</span><span><i class="lg l">L</i>Lackiererei</span><span><i class="lg m"></i>Auftrag</span></div></div>
+    <div id="pp-missions" class="ppage"><ul id="missionList" class="plist"></ul></div>
+    <div id="pp-radio" class="ppage"><div id="stationList"></div><p class="pnote">Radio läuft, sobald du im Auto sitzt. Im Auto: R / 📻 wechselt den Sender.</p></div>
+    <div id="pp-stats" class="ppage"><ul id="statList" class="plist kv"></ul></div>
+    <div id="pp-settings" class="ppage">
+      <div class="plabel">Grafikqualität</div>
+      <div class="qrow"><button class="pbtn" data-q="auto"><b>AUTO</b><span>passend zum Gerät (empfohlen)</span></button><button class="pbtn" data-q="hoch"><b>HOCH</b><span>bis 2,5× Auflösung, 4K-Schatten, AO</span></button><button class="pbtn" data-q="mittel"><b>MITTEL</b><span>volle Handy-Auflösung, 2K-Schatten</span></button><button class="pbtn" data-q="niedrig"><b>NIEDRIG</b><span>für ältere Handys</span></button></div>
+      <p id="prInfo" class="pnote"></p>
+      <button id="btnMute" class="pbtn">🔊 Ton</button>
+      <button id="btnReset" class="pbtn danger">↺ Spielstand löschen</button>
+    </div>
+    <div id="pp-help" class="ppage">
+      <ul class="plist kv small">
+        <li><span>Laufen / Fahren</span><b>WASD · Joystick</b></li><li><span>Rennen</span><b>Shift · 🏃 · Joystick ganz raus</b></li>
+        <li><span>Schlagen</span><b>Klick / Q · 👊</b></li><li><span>Einsteigen / Klauen</span><b>F · 🚗</b></li>
+        <li><span>Shop ausrauben</span><b>E halten · 💰</b></li><li><span>Handbremse</span><b>Leertaste · ⛔</b></li>
+        <li><span>Hupe</span><b>H · 📯</b></li><li><span>Radio</span><b>R · 📻</b></li><li><span>Karte</span><b>M</b></li><li><span>Handy / Pause</span><b>Tab · Esc · 📱</b></li>
+      </ul>
+      <p class="pnote">Verträge (magenta Blätter) einsammeln und im Telekom Shop abgeben = Provision nach echter Provisionsliste. Konkurrenz-Shops ausrauben bringt Bargeld + Kundenverträge, aber Fahndungssterne. Polizei abhängen oder in die Magenta Lackiererei fahren.</p>
+    </div>
+    <button id="phoneBack" class="pback">◀ Zurück</button>
+  </div>
+</section>
+<script type="module" src="js/main.js?v=20261031-1630"></script>
+</body>
+</html>
