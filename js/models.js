@@ -2,7 +2,8 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { signTex, drawT, fitText, FONT, roundRect, radialTex } from './util.js?v=20261031-1730';
+import { signTex, drawT, fitText, FONT, roundRect, radialTex } from './util.js?v=20261031-2130';
+import { carTemplate, carMats } from './carmodels.js?v=20261031-2130';
 
 const M4 = new THREE.Matrix4(), Qt = new THREE.Quaternion(), Vv = new THREE.Vector3(), Sv = new THREE.Vector3(), Eu = new THREE.Euler();
 function colored(geo, color, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) {
@@ -40,15 +41,20 @@ export function paintMat(hex) {
 
 // ---------------- Fahrzeugtypen ----------------
 export const VTYPES = {
-  sport:   { name: 'Magenta GT', len: 4.5, wid: 1.95, h: 1.2, wb: 2.7, maxV: 64, acc: 15, grip: 7.5, steer: 0.62, mass: 1.1, hp: 900, colors: [0xE20074, 0xff2a9d, 0x19c6e6, 0xffffff, 0x111111, 0xffb000, 0x8a2be2] },
-  sedan:   { name: 'Limousine', len: 4.7, wid: 1.9, h: 1.5, wb: 2.8, maxV: 46, acc: 9.5, grip: 6.2, steer: 0.6, mass: 1.3, hp: 1000, colors: [0xdfe3e8, 0x3a4a6a, 0x9a1f2a, 0x2a2a2a, 0xc8b89a, 0x6a8a7a, 0xf4f4f4] },
-  taxi:    { name: 'Miami Taxi', len: 4.8, wid: 1.9, h: 1.5, wb: 2.85, maxV: 45, acc: 9.5, grip: 6.2, steer: 0.6, mass: 1.3, hp: 1000, colors: [0xffc21a] },
-  tkvan:   { name: 'Telekom Caddy', len: 4.7, wid: 1.95, h: 1.95, wb: 2.9, maxV: 40, acc: 8, grip: 5.6, steer: 0.58, mass: 1.6, hp: 1100, colors: [0xE20074] },
-  tktruck: { name: 'Telekom Service-Truck', len: 7.0, wid: 2.4, h: 3.0, wb: 4.2, maxV: 32, acc: 5.5, grip: 5.0, steer: 0.5, mass: 3.0, hp: 1600, colors: [0xffffff] },
-  pickup:  { name: 'Glasfaser-Tiefbau', len: 5.4, wid: 2.05, h: 1.85, wb: 3.3, maxV: 40, acc: 8, grip: 5.6, steer: 0.55, mass: 1.9, hp: 1300, colors: [0xf2f2f2] },
-  rivalvan:{ name: 'Konkurrenz-Transporter', len: 5.6, wid: 2.05, h: 2.4, wb: 3.5, maxV: 36, acc: 7, grip: 5.2, steer: 0.55, mass: 2.0, hp: 1200, colors: [0xd40000, 0x0a2a9c] },
-  police:  { name: 'Polizei', len: 4.8, wid: 1.95, h: 1.5, wb: 2.85, maxV: 56, acc: 13, grip: 7.2, steer: 0.62, mass: 1.5, hp: 1400, colors: [0xf4f6fa] },
-  swat:    { name: 'SEK-Transporter', len: 5.8, wid: 2.2, h: 2.6, wb: 3.6, maxV: 48, acc: 10, grip: 6.2, steer: 0.55, mass: 2.6, hp: 2200, colors: [0x15181e] },
+  sport:   { name: 'Magenta GT', len: 4.5, wid: 2.0, h: 1.2, wb: 2.75, maxV: 64, acc: 15, grip: 7.5, steer: 0.62, mass: 1.1, hp: 900, colors: [0xE20074, 0xff2a9d, 0x19c6e6, 0xffffff, 0x111111, 0xffb000, 0x8a2be2], model: 'hypergt', mlen: 4.5, genre: 'jam', cls: 'Sportwagen' },
+  hyper:   { name: 'Vice Hyper GT', len: 4.6, wid: 2.05, h: 1.18, wb: 2.85, maxV: 76, acc: 19, grip: 8.2, steer: 0.62, mass: 1.15, hp: 950, colors: [0xff3b30, 0x19c6e6, 0xffd400, 0x39ff14, 0xff7a00, 0xE20074, 0xf4f4f4, 0x8a2be2], model: 'hypergt', mlen: 4.6, mscale: [1.05, 0.95, 1], paint2: 0x0b0c0f, kit: 'wing', rim: [0.35, 0.35, 0.38], genre: 'elektro', cls: 'Supersportwagen' },
+  cabrio:  { name: 'Vice Cabrio', len: 4.5, wid: 2.0, h: 1.1, wb: 2.75, maxV: 62, acc: 14, grip: 7.4, steer: 0.62, mass: 1.1, hp: 850, colors: [0xff2a9d, 0x19c6e6, 0xffd400, 0xff5a1a, 0xffffff, 0x2aff9d, 0xb04aff, 0xd40000], model: 'cabrio', mlen: 4.5, rim: [1.35, 1.35, 1.4], genre: 'jam', cls: 'Cabrio' },
+  speedster: { name: 'Ocean Speedster', len: 4.25, wid: 2.0, h: 1.05, wb: 2.6, maxV: 66, acc: 15, grip: 7.8, steer: 0.64, mass: 1.0, hp: 820, colors: [0x19e6ff, 0xffffff, 0xff5fb8, 0xfff1c2, 0x2aff9d, 0xffb000], model: 'cabrio', mlen: 4.5, mscale: [1, 0.97, 0.94], paint2: 0xf4efe6, rim: [1.5, 1.25, 0.6], genre: 'jam', cls: 'Roadster' },
+  muscle:  { name: 'Kabel Muscle', len: 4.75, wid: 2.1, h: 1.3, wb: 2.9, maxV: 60, acc: 16, grip: 6.6, steer: 0.58, mass: 1.35, hp: 1000, colors: [0xff5a1a, 0x101014, 0xd40000, 0xffd400, 0x1a3a8a, 0x2a6a3a], model: 'hypergt', mlen: 4.5, mscale: [1.05, 1.08, 1.055], paint2: 0x101014, kit: 'scoop', rim: [0.55, 0.55, 0.6], genre: 'rock', cls: 'Muscle-Car' },
+  ecoupe:  { name: 'Glasfaser E-Coupé', len: 4.5, wid: 2.0, h: 1.15, wb: 2.75, maxV: 70, acc: 21, grip: 8.0, steer: 0.62, mass: 1.2, hp: 900, colors: [0xf4f6fa, 0x19c6e6, 0x8a2be2, 0x101418], model: 'hypergt', mlen: 4.5, mscale: [1, 0.96, 1], paint2: 0x0a0c12, kit: 'glow', rim: [0.9, 1.4, 1.6], genre: 'cyber', cls: 'Elektro-Sportwagen' },
+  sedan:   { genre: 'groove', name: 'Limousine', len: 4.7, wid: 1.9, h: 1.5, wb: 2.8, maxV: 46, acc: 9.5, grip: 6.2, steer: 0.6, mass: 1.3, hp: 1000, colors: [0xdfe3e8, 0x3a4a6a, 0x9a1f2a, 0x2a2a2a, 0xc8b89a, 0x6a8a7a, 0xf4f4f4] },
+  taxi:    { genre: 'jam', name: 'Miami Taxi', len: 4.8, wid: 1.9, h: 1.5, wb: 2.85, maxV: 45, acc: 9.5, grip: 6.2, steer: 0.6, mass: 1.3, hp: 1000, colors: [0xffc21a] },
+  tkvan:   { genre: 'cyber', name: 'Telekom E-Caddy', len: 4.7, wid: 1.95, h: 1.95, wb: 2.9, maxV: 40, acc: 8, grip: 5.6, steer: 0.58, mass: 1.6, hp: 1100, colors: [0xE20074] },
+  tktruck: { genre: 'rock', name: 'Telekom Service-Truck', len: 7.0, wid: 2.4, h: 3.0, wb: 4.2, maxV: 32, acc: 5.5, grip: 5.0, steer: 0.5, mass: 3.0, hp: 1600, colors: [0xffffff] },
+  pickup:  { genre: 'rock', name: 'Glasfaser-Tiefbau', len: 5.4, wid: 2.05, h: 1.85, wb: 3.3, maxV: 40, acc: 8, grip: 5.6, steer: 0.55, mass: 1.9, hp: 1300, colors: [0xf2f2f2] },
+  rivalvan:{ genre: 'rock', name: 'Konkurrenz-Transporter', len: 5.6, wid: 2.05, h: 2.4, wb: 3.5, maxV: 36, acc: 7, grip: 5.2, steer: 0.55, mass: 2.0, hp: 1200, colors: [0xd40000, 0x0a2a9c] },
+  police:  { genre: 'jam', name: 'Polizei', len: 4.8, wid: 1.95, h: 1.5, wb: 2.85, maxV: 56, acc: 13, grip: 7.2, steer: 0.62, mass: 1.5, hp: 1400, colors: [0xf4f6fa] },
+  swat:    { genre: 'rock', name: 'SEK-Transporter', len: 5.8, wid: 2.2, h: 2.6, wb: 3.6, maxV: 48, acc: 10, grip: 6.2, steer: 0.55, mass: 2.6, hp: 2200, colors: [0x15181e] },
 };
 const geoCache = {};
 let DETAIL = 1; // 1 = Desktop, 0 = Handy (weniger Polygone)
@@ -150,6 +156,7 @@ function getDriverGeo(kind) {
 }
 export function makeVehicle(kind, colorIdx = 0) {
   const T = VTYPES[kind], M = sharedMats();
+  if (T.model) { const mv = makeModelVehicle(kind, colorIdx); if (mv) return mv; }
   if (!geoCache[kind]) geoCache[kind] = buildVehicleGeo(kind);
   const G = geoCache[kind];
   const color = T.colors[colorIdx % T.colors.length];
@@ -200,7 +207,111 @@ export function makeVehicle(kind, colorIdx = 0) {
   const beam = new THREE.Mesh(new THREE.PlaneGeometry(7, 13).rotateX(-Math.PI / 2), M.beam); beam.position.set(0, 0.07 - 0, T.len / 2 + 6.5); beam.renderOrder = 3; root.add(beam);
   return { root, body, wheels, paintMesh, lightMesh, bar, driver, beam, kind, type: T, color };
 }
-export function setDriver(v, who) { v.driver.visible = who !== 'none'; if (who !== 'none') v.driver.geometry = getDriverGeo(who); }
+// Varianten: Felgenfarbe, Heckflügel, Hutze, Unterboden-Neon
+const rimCache = {};
+function rimMat(rim, CM) {
+  if (!rim) return CM.wheel;
+  const k = rim.join(','); if (rimCache[k]) return rimCache[k];
+  const m = CM.wheel.clone(); m.color.setRGB(rim[0], rim[1], rim[2]); return rimCache[k] = m;
+}
+let kitMats = null;
+function addKit(T, body, tp, color) {
+  if (!T.kit) return;
+  if (!kitMats) kitMats = { carbon: new THREE.MeshPhysicalMaterial({ color: 0x111215, roughness: 0.35, metalness: 0.3, clearcoat: 1, clearcoatRoughness: 0.15 }) };
+  const L = tp.len, H = tp.h;
+  if (T.kit === 'wing') {
+    const g = new THREE.Group();
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.04, 0.34), kitMats.carbon); plate.position.set(0, H * 0.98, -L / 2 + 0.3); plate.rotation.x = -0.12;
+    for (const sx of [-0.45, 0.45]) { const st = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.26, 0.16), kitMats.carbon); st.position.set(sx, H * 0.86, -L / 2 + 0.34); g.add(st); }
+    for (const sx of [-0.86, 0.86]) { const ep = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.14, 0.38), kitMats.carbon); ep.position.set(sx, H * 0.98, -L / 2 + 0.3); g.add(ep); }
+    g.add(plate); g.traverse(o => { if (o.isMesh) o.castShadow = true; }); body.add(g);
+  } else if (T.kit === 'scoop') {
+    const sc = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.12, 0.8), kitMats.carbon); sc.position.set(0, H * 0.72, L / 2 - 1.15); sc.rotation.x = 0.06; sc.castShadow = true; body.add(sc);
+  } else if (T.kit === 'glow') {
+    const gm = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.2, 2.2, 3.0), transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
+    const gl = new THREE.Mesh(new THREE.PlaneGeometry(tp.wid * 1.05, L * 0.95).rotateX(-Math.PI / 2), gm); gl.position.y = 0.04; gl.renderOrder = 3; body.add(gl);
+  }
+}
+// Modell-Fahrzeug (echtes 3D-Modell, s. carmodels.js)
+function makeModelVehicle(kind, colorIdx) {
+  const T = VTYPES[kind], tp = carTemplate(T.model, T.mlen); if (!tp) return null;
+  const M = sharedMats(), CM = carMats(M);
+  const color = T.colors[colorIdx % T.colors.length];
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const hiG = new THREE.Group(); body.add(hiG);
+  const paintM = paintMat(color);
+  let paintMesh = null, lightMesh = null, lodPaint = null;
+  const pickMat = n => {
+    if (/^Paint 1/.test(n)) return paintM;
+    if (/^Paint 2/.test(n)) return T.paint2 != null ? paintMat(T.paint2) : CM.dark;
+    if (/Glass/i.test(n)) return CM.glass;
+    if (/Headlight/.test(n)) return CM.head;
+    if (n === '__misc') return CM.misc;
+    if (n === '__lights') return CM.lights;
+    return null;
+  };
+  // Fern-Detailstufe (ca. 2,7k Dreiecke statt 25k) + einfache Räder
+  const lt = carTemplate(T.model + '-lod', T.mlen, tp);
+  let lodG = null;
+  if (lt) {
+    lodG = new THREE.Group(); lodG.visible = false; body.add(lodG);
+    for (const p of lt.body) { const mat = pickMat(p.name) || p.mat; const o = new THREE.Mesh(p.geo, mat); o.castShadow = mat !== CM.glass; if (mat === CM.glass) o.renderOrder = 2; lodG.add(o); if (mat === paintM) lodPaint = o; }
+  }
+  for (const p of tp.body) {
+    const n = p.name;
+    let mat = p.mat;
+    if (/^Paint 1/.test(n)) mat = paintM;
+    else if (/^Paint 2/.test(n)) mat = T.paint2 != null ? paintMat(T.paint2) : CM.dark;
+    else if (/Glass/i.test(n)) mat = CM.glass;
+    else if (/Headlight/.test(n)) mat = CM.head;
+    else if (/Brakelight/.test(n)) mat = CM.tail;
+    else if (/Signallight/.test(n)) mat = CM.signal;
+    else if (/^Interior 3/.test(n)) mat = M.trim;
+    else if (n === '__misc') mat = CM.misc;
+    else if (n === '__lights') mat = CM.lights;
+    const o = new THREE.Mesh(p.geo, mat); o.castShadow = mat !== CM.glass; o.receiveShadow = false; hiG.add(o);
+    if (mat === paintM) paintMesh = o; if (mat === CM.head) lightMesh = o;
+    if (mat === CM.glass) o.renderOrder = 2;
+  }
+  const wheels = [];
+  for (const w of tp.wheels) {
+    const piv = new THREE.Group(); piv.position.copy(w.pos); if (T.mscale) { piv.position.x *= T.mscale[0]; piv.position.z *= T.mscale[2]; }
+    const wm = new THREE.Group(); for (const p of w.parts) { const o = new THREE.Mesh(p.geo, p.mat || rimMat(T.rim, CM)); o.castShadow = true; wm.add(o); }
+    piv.add(wm); root.add(piv); wheels.push({ piv, w: wm, front: w.front });
+  }
+  let lodW = null;
+  if (lodG) {
+    lodW = new THREE.Group(); lodW.visible = false; root.add(lodW);
+    const wg = lodWheelGeo(tp.wheelR);
+    for (const w of wheels) { const o = new THREE.Mesh(wg, CM.misc); o.position.copy(w.piv.position); lodW.add(o); }
+  }
+  if (T.mscale) body.scale.set(T.mscale[0], T.mscale[1], T.mscale[2]);
+  addKit(T, body, tp, color);
+  if (!paintMesh) paintMesh = new THREE.Mesh(new THREE.BufferGeometry(), paintM);
+  if (!lightMesh) lightMesh = new THREE.Mesh(new THREE.BufferGeometry(), CM.head);
+  const driver = new THREE.Mesh(getDriverGeo('civ'), M.char);
+  driver.position.set(0.38, 0.2, -0.15); driver.scale.setScalar(0.92); body.add(driver);
+  if (T.model === 'cabrio') driver.visible = false; // im Cabrio sitzt ein echtes Modell (main.js)
+  const beam = new THREE.Mesh(new THREE.PlaneGeometry(7, 13).rotateX(-Math.PI / 2), M.beam); beam.position.set(0, 0.07, T.len / 2 + 6.5); beam.renderOrder = 3; root.add(beam);
+  return { root, body, wheels, paintMesh, lightMesh, bar: null, driver, beam, kind, type: T, color, model: true, wheelR: tp.wheelR, hiG, lodG, lodW, lodPaint, lod: false };
+}
+// Detailstufe umschalten (main.js, nach Kameradistanz)
+export function setCarLod(m, far) {
+  if (!m.lodG || m.lod === far) return;
+  m.lod = far; m.hiG.visible = !far; m.lodG.visible = far; m.lodW.visible = far;
+  for (const w of m.wheels) w.piv.visible = !far;
+  if (m.kit) m.kit.visible = !far;
+}
+const lodWheels = {};
+function lodWheelGeo(r) {
+  const k = r.toFixed(3); if (lodWheels[k]) return lodWheels[k];
+  const g = new THREE.CylinderGeometry(r, r, 0.26, 14, 1).rotateZ(Math.PI / 2).toNonIndexed();
+  const n = g.attributes.position.count, c = new Float32Array(n * 3), nr = g.attributes.normal;
+  for (let i = 0; i < n; i++) { const cap = Math.abs(nr.getX(i)) > 0.9; const v = cap ? 0.42 : 0.035; c[i * 3] = v; c[i * 3 + 1] = v; c[i * 3 + 2] = v * 1.05; }
+  g.setAttribute('color', new THREE.BufferAttribute(c, 3));
+  return (lodWheels[k] = g);
+}
+export function setDriver(v, who) { v.driverWho = who; v.driver.visible = who !== 'none' && v.type.model !== 'cabrio'; if (who !== 'none') v.driver.geometry = getDriverGeo(who); }
 
 // ---------------- Figuren ----------------
 const SKINS = [0xf0c8a0, 0xd9a27a, 0xb07a52, 0x8a5a3a, 0x5e3a24, 0xffd8b8];

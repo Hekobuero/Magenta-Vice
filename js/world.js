@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Sky } from 'three/addons/objects/Sky.js';
 import { clamp, lerp, smooth, rng, pick, canvas, tex, roundRect, drawHeko, drawT, fitText, FONT, HEKO_RATIO,
-  roadTex, crossTex, sidewalkTex, barkTex, grassTex, sandTex, waterNormalTex, radialTex, windowTex, signTex, noiseCanvas } from './util.js?v=20261031-1730';
+  roadTex, crossTex, sidewalkTex, barkTex, grassTex, sandTex, waterNormalTex, radialTex, windowTex, signTex, noiseCanvas } from './util.js?v=20261031-2130';
 
 export const GRID = [-240, -160, -80, 0, 80, 160, 240];
 export const RHW = 6;            // halbe Fahrbahnbreite
@@ -36,7 +36,7 @@ const NEON = [0xff2a9d, 0x19e6ff, 0xa24bff, 0x3dffb5, 0xff7a2a, 0xff2a9d, 0x19e6
 
 export const world = {
   colliders: [], hash: new Map(), nodes: [], edges: [], rings: [], beachSpots: [], shops: [], pois: {}, roadsMap: [], bldMap: [],
-  contractSpots: [], parkSpots: [], resRings: [], mats: {}, signMats: [], neonMat: null, glassMat: null, decoMat: null, lampPool: null, water: null,
+  contractSpots: [], parkSpots: [], benchSpots: [], loungerSpots: [], clubSpots: [], resRings: [], mats: {}, signMats: [], neonMat: null, glassMat: null, decoMat: null, lampPool: null, water: null,
 };
 const CELL = 16;
 function addCollider(x0, x1, z0, z1, h = 10, kind = 'b') {
@@ -401,6 +401,7 @@ export function buildWorld(scene, Q_) {
       const name = HOTEL_NAMES[hotelK++ % HOTEL_NAMES.length];
       neonText(name, '#' + new THREE.Color(nc).getHexString(), Math.min(w * 0.85, 12), 1.9, fx + si.nx * 0.05 + (side < 2 ? 0 : 0), h + 1.4, fz + si.nz * 0.05, rot);
     }
+    world.clubSpots.push([fx + si.nx * 3.2, fz + si.nz * 3.2, rot, ocean]);
     // Vordach + Veranda
     if (ocean) B.plain.add(new THREE.BoxGeometry(side < 2 ? w * 0.8 : 3, 0.16, side < 2 ? 3 : d * 0.8), mat(x + si.nx * ((side < 2 ? 0 : w / 2) + 1.5), 3.2, z + si.nz * ((side < 2 ? d / 2 : 0) + 1.5)), 0xffffff);
   }
@@ -564,7 +565,7 @@ export function buildWorld(scene, Q_) {
     const x = 272 + r() * 30, z = LAND.z0 + 14 + r() * (LAND.z1 - LAND.z0 - 28);
     const m = mat(x, 0, z, r() * 6); umb.setMatrixAt(k, m); pole.setMatrixAt(k, m);
     umb.setColorAt(k, new THREE.Color(k % 3 === 0 ? 0xffffff : k % 3 === 1 ? 0xE20074 : 0x19c6e6));
-    lounger.setMatrixAt(k * 2, mat(x + 1.3, 0, z + 0.3, 0)); lounger.setMatrixAt(k * 2 + 1, mat(x - 1.3, 0, z + 0.3, 0));
+    lounger.setMatrixAt(k * 2, mat(x + 1.3, 0, z + 0.3, 0)); lounger.setMatrixAt(k * 2 + 1, mat(x - 1.3, 0, z + 0.3, 0)); world.loungerSpots.push([x + 1.3, z + 0.3], [x - 1.3, z + 0.3]);
     world.beachSpots.push([x, z]);
   }
   umb.castShadow = pole.castShadow = lounger.castShadow = true; lounger.receiveShadow = true;
@@ -640,6 +641,46 @@ export function buildWorld(scene, Q_) {
     P.castShadow = true; PL.renderOrder = 2;
     root.add(P, A, H, PL);
     world.lampHead = headM; world.lampPool = poolM; world.lampCount = n;
+  }
+
+  // ---- Sitzbänke an den Gehwegen (Spawnpunkte für sitzende Passanten)
+  {
+    const seat = new THREE.BoxGeometry(1.7, 0.07, 0.46).translate(0, 0.46, 0), back = new THREE.BoxGeometry(1.7, 0.42, 0.06).translate(0, 0.76, -0.22);
+    const legs = [-0.7, 0.7].map(x => new THREE.BoxGeometry(0.08, 0.46, 0.44).translate(x, 0.23, 0));
+    for (const [a, b] of Eg) {
+      const A = N[a], Bn = N[b], dx = Bn.x - A.x, dz = Bn.z - A.z, L = Math.hypot(dx, dz);
+      if (A.x < -300 || Bn.x < -300) continue;
+      const ux = dx / L, uz = dz / L, nx = -uz, nz = ux;
+      for (let s = 27; s < L - 20; s += 54) for (const side of [-1, 1]) {
+        const x = A.x + ux * s + nx * side * (RHW + 3.3), z = A.z + uz * s + nz * side * (RHW + 3.3);
+        const o = { x: 0, z: 0, n: 0 }; if (circleHit(x, z, 1.3, o)) continue;
+        const ry = Math.atan2(-nx * side, -nz * side); // Blick zur Straße
+        const m = mat(x, 0, z, ry);
+        B.plain.add(seat, m, 0x8a5a3a); B.plain.add(back, m, 0x8a5a3a); for (const l of legs) B.plain.add(l, m, 0x2a2a30);
+        addCollider(x - 0.5, x + 0.5, z - 0.5, z + 0.5, 0.9, 'wall');
+        world.benchSpots.push([x, z, ry]);
+      }
+    }
+  }
+  // ---- AMMU-NETZ (Parodie-Waffenladen) am Strandparkplatz
+  {
+    const x = 263, z = -9, w = 7, d = 9, h = 4.2;
+    B.plain.add(new THREE.BoxGeometry(w, h, d), mat(x, h / 2, z), 0x9a9ea8);
+    B.plain.add(new THREE.BoxGeometry(w + 0.04, 0.35, d + 0.04), mat(x, 0.18, z), 0x1a1b1f);
+    for (const sz of [-1, 1]) B.glass.add(new THREE.BoxGeometry(0.1, 1.5, 2.1), mat(x - w / 2 - 0.01, 1.75, z + sz * 2.9), 0xffffff);
+    B.plain.add(new THREE.BoxGeometry(w + 0.6, 0.4, d + 0.6), mat(x, h + 0.2, z), 0x16181c);
+    B.plain.add(new THREE.BoxGeometry(0.12, 2.4, 3.2), mat(x - w / 2 - 0.02, 1.2, z), 0x0b0c0f);
+    B.neon.add(new THREE.BoxGeometry(0.08, 0.08, d), mat(x - w / 2 - 0.1, h - 0.15, z), 0xff7a2a);
+    addCollider(x - w / 2, x + w / 2, z - d / 2, z + d / 2, h);
+    const t = signTex((g2, W, H) => {
+      g2.fillStyle = '#121316'; g2.fillRect(0, 0, W, H);
+      g2.fillStyle = '#ff7a2a'; g2.fillRect(0, H - 14, W, 14);
+      g2.textAlign = 'left';
+      fitText(g2, 'AMMU-NETZ', 26, H * 0.44, W - 52, H * 0.42, 900, '#ff7a2a', true);
+      fitText(g2, 'Waffen · Munition · 5G-Zielfernrohre', 26, H * 0.78, W - 52, H * 0.19, 700, '#e8e8e8');
+    }, 1024, 220);
+    addSign(t, 6.4, 1.37, x - w / 2 - 0.12, h + 1.1, z, -Math.PI / 2, 2.0);
+    world.pois.ammu = { x: x - w / 2 - 2.2, z, ry: -Math.PI / 2 };
   }
 
   // ---- Batches in Meshes
