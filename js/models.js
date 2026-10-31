@@ -2,8 +2,9 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { signTex, drawT, fitText, FONT, roundRect, radialTex } from './util.js?v=20261031-2130';
-import { carTemplate, carMats } from './carmodels.js?v=20261031-2130';
+import { signTex, drawT, fitText, FONT, roundRect, radialTex } from './util.js?v=20261031-2315';
+import { carTemplate, carMats } from './carmodels.js?v=20261031-2315';
+import { V2KINDS, makeVehicle2, setV2Lod } from './vehicles2.js?v=20261031-2315';
 
 const M4 = new THREE.Matrix4(), Qt = new THREE.Quaternion(), Vv = new THREE.Vector3(), Sv = new THREE.Vector3(), Eu = new THREE.Euler();
 function colored(geo, color, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) {
@@ -157,6 +158,7 @@ function getDriverGeo(kind) {
 export function makeVehicle(kind, colorIdx = 0) {
   const T = VTYPES[kind], M = sharedMats();
   if (T.model) { const mv = makeModelVehicle(kind, colorIdx); if (mv) return mv; }
+  if (V2KINDS.has(kind)) return makeVehicle2(kind, colorIdx, { T, M, paintMat, getDriverGeo, liveryTex, detail: DETAIL });
   if (!geoCache[kind]) geoCache[kind] = buildVehicleGeo(kind);
   const G = geoCache[kind];
   const color = T.colors[colorIdx % T.colors.length];
@@ -297,6 +299,7 @@ function makeModelVehicle(kind, colorIdx) {
 }
 // Detailstufe umschalten (main.js, nach Kameradistanz)
 export function setCarLod(m, far) {
+  if (m.v2) return setV2Lod(m, far);
   if (!m.lodG || m.lod === far) return;
   m.lod = far; m.hiG.visible = !far; m.lodG.visible = far; m.lodW.visible = far;
   for (const w of m.wheels) w.piv.visible = !far;

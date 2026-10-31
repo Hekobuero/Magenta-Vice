@@ -6,15 +6,15 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
-import { clamp, lerp, smooth, rng, pick, angDiff, canvas, tex, signTex, drawT, fitText, FONT, setAniso, fmtEUR, fmtEURc, radialTex, roundRect, drawHeko, HEKO_RATIO } from './util.js?v=20261031-2130';
-import { world, buildWorld, buildSky, updateTOD, TOD, GRID, RHW, PED_OFF, LAND, ISLAND, CAUSE, BEACH_X, DEEP_X, BRANDS, circleHit, queryColliders, lineBlocked, surfaceY, isDeep, onLand, sky } from './world.js?v=20261031-2130';
-import { makeVehicle, makeCharacter, poseCharacter, setDriver, VTYPES, paintMat, sharedMats, setDetail, setCarLod } from './models.js?v=20261031-2130';
-import * as AU from './audio.js?v=20261031-2130';
-import { loadAssets, ASSETS } from './assets.js?v=20261031-2130';
-import { humanAvailable, makeHuman, animateHuman, setHumanWeapon, muzzleWorld, setHumanShadow, weaponModel } from './people.js?v=20261031-2130';
-import { TARIFFS, CATEGORIES } from './tarife.js?v=20261031-2130';
+import { clamp, lerp, smooth, rng, pick, angDiff, canvas, tex, signTex, drawT, fitText, FONT, setAniso, fmtEUR, fmtEURc, radialTex, roundRect, drawHeko, HEKO_RATIO } from './util.js?v=20261031-2315';
+import { world, buildWorld, buildSky, updateTOD, TOD, GRID, RHW, PED_OFF, LAND, ISLAND, CAUSE, BEACH_X, DEEP_X, BRANDS, circleHit, queryColliders, lineBlocked, surfaceY, isDeep, onLand, sky } from './world.js?v=20261031-2315';
+import { makeVehicle, makeCharacter, poseCharacter, setDriver, VTYPES, paintMat, sharedMats, setDetail, setCarLod } from './models.js?v=20261031-2315';
+import * as AU from './audio.js?v=20261031-2315';
+import { loadAssets, ASSETS } from './assets.js?v=20261031-2315';
+import { humanAvailable, makeHuman, animateHuman, setHumanWeapon, muzzleWorld, setHumanShadow, weaponModel } from './people.js?v=20261031-2315';
+import { TARIFFS, CATEGORIES } from './tarife.js?v=20261031-2315';
 
-export const VERSION = '20261031-2130';
+export const VERSION = '20261031-2315';
 const $ = id => document.getElementById(id);
 const PARAMS = new URLSearchParams(location.search);
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
@@ -605,7 +605,7 @@ glCanvas.addEventListener('mousedown', e => {
 });
 addEventListener('mouseup', e => { if (e.button === 0) W.fireHeld = false; if (e.button === 2) W.aimHeld = false; });
 glCanvas.addEventListener('contextmenu', e => e.preventDefault());
-glCanvas.addEventListener('wheel', e => { if (!G.started || G.paused || G.car) return; e.preventDefault(); cycleWeapon(e.deltaY > 0 ? 1 : -1); }, { passive: false });
+window.addEventListener('wheel', e => { if (!G.started || G.paused || G.car) return; if (e.target !== glCanvas && e.target.id !== 'touchLayer') return; e.preventDefault(); cycleWeapon(e.deltaY > 0 ? 1 : -1); }, { passive: false });
 addEventListener('mousemove', e => {
   if (document.pointerLockElement !== glCanvas) return;
   if (W.wheel) { W.wheelX = clamp(W.wheelX + e.movementX, -120, 120); W.wheelY = clamp(W.wheelY + e.movementY, -120, 120); wheelPoint(W.wheelX, W.wheelY); return; }
@@ -845,14 +845,14 @@ function cycleWeapon(dir = 1) { for (let k = 1; k <= 4; k++) { const i = ((INV.s
 function persistInv() { SAVE.inv = INV.slots.map(s => s && { k: s.k, ammo: s.ammo }); SAVE.blood = BLOOD; persist(); }
 function giveWeapon(k, ammo) {
   const have = INV.slots.findIndex(s => s && s.k === k);
-  if (have >= 0) { INV.slots[have].ammo += ammo; AU.sfx.pickup(); if (isGun(k)) help(`+${ammo} Schuss für ${WEAP[k].name}`); updateWeaponHud(); persistInv(); return true; }
+  if (have >= 0) { INV.slots[have].ammo += ammo; AU.sfx.pickup(); help(isGun(k) ? `${WEAP[k].name}: +${ammo} Schuss` : `${WEAP[k].name} hast du schon.`, 2.5); updateWeaponHud(); persistInv(); return true; }
   let i = INV.slots.findIndex(s => !s);
   if (i < 0) { // Waffentausch: gehaltene (oder zuletzt gehaltene) Waffe fallen lassen
     i = (INV.sel || INV.last || 1) - 1;
     const old = INV.slots[i], fx = Math.sin(player.h), fz = Math.cos(player.h);
     const d = dropPickup('w:' + old.k, player.x - fz * 1.3 - fx * 0.5, player.z + fx * 1.3 - fz * 0.5, old.ammo, 120); d.noPick = 1;
     help(`Waffentausch: ${WEAP[old.k].name} abgelegt, ${WEAP[k].name} genommen.`);
-  } else help(`${WEAP[k].name} aufgenommen! ${isTouch ? 'Waffen-Taste: wechseln · lange drücken: Waffenrad' : '1–4 / Mausrad: wechseln · C halten: Waffenrad'}`);
+  } else help(`${WEAP[k].name} aufgenommen${isGun(k) ? ` +${ammo} Schuss` : ''}! ${isTouch ? 'Waffen-Taste: wechseln · lange drücken: Waffenrad' : '1–4 / Mausrad: wechseln · C halten: Waffenrad'}`);
   INV.slots[i] = { k, ammo }; AU.sfx.pickup(); selectSlot(i + 1, true); persistInv();
   return true;
 }
@@ -1018,10 +1018,11 @@ function damagePed(p, dmg, at, dir, shooter, melee) {
       if (p.kind === 'ranger') {
         G.stats.rangers++; G.mstate.rangers = (G.mstate.rangers || 0) + 1;
         dropPickup('clipboard', p.x + dir.z * 0.9, p.z - dir.x * 0.9, 2 + Math.floor(R() * 3));
-        if (p.weapon && isGun(p.weapon)) dropPickup('w:' + p.weapon, p.x - dir.z * 0.9, p.z + dir.x * 0.9, WEAP[p.weapon].start / 2 | 0, 90);
+        if (p.weapon) dropPickup('w:' + p.weapon, p.x - dir.z * 0.9, p.z + dir.x * 0.9, isGun(p.weapon) ? WEAP[p.weapon].start / 2 | 0 : 1, 90);
+        else if (R() < 0.25) dropPickup('ammo', p.x - dir.z * 0.9, p.z + dir.x * 0.9, 1, 90);
         else dropPickup('cash', p.x - dir.z * 0.9, p.z + dir.x * 0.9, Math.round(rand(20, 80)) * 100);
         popup(p, 'D2D-LER AUSGESCHALTET!', 'warn');
-      } else if (p.cop) { crime(2, 'Polizist niedergestreckt', true); if (R() < 0.6) dropPickup('w:' + (p.weapon || 'pistole'), p.x - dir.z, p.z + dir.x, 12, 90); }
+      } else if (p.cop) { crime(2, 'Polizist niedergestreckt', true); dropPickup('w:' + (p.weapon || 'pistole'), p.x - dir.z, p.z + dir.x, p.weapon === 'uzi' ? 40 : 12, 90); if (R() < 0.4) dropPickup('ammo', p.x + dir.z, p.z - dir.x, 1, 90); }
       else { if (R() < 0.5) dropPickup('cash', p.x + dir.x, p.z + dir.z, Math.round(rand(5, 35)) * 100); if (G.time - W.lastCrime > 3) { W.lastCrime = G.time; crime(1, melee ? 'Körperverletzung' : 'Schusswaffengebrauch'); } }
     }
   } else if (byPlayer) {
@@ -1065,7 +1066,7 @@ function explode(v) {
   fireball(at); sparks(at, 40, 4); dust(at, 14); muzzleFlash(new THREE.Vector3(at.x, at.y + 1.4, at.z), 9);
   flashLight(at, 45, 0.5, 0xffa040);
   if (!BURNT) BURNT = new THREE.MeshStandardMaterial({ color: 0x15120f, roughness: 0.95, metalness: 0.2 });
-  v.m.paintMesh.material = BURNT; if (v.m.body) v.m.body.traverse(o => { if (o.isMesh && o.material && o.material.userData?.paint) o.material = BURNT; });
+  v.m.paintMesh.material = BURNT; if (v.m.decals) for (const d of v.m.decals) d.visible = false; if (v.m.body) v.m.body.traverse(o => { if (o.isMesh && o.material && o.material.userData?.paint) o.material = BURNT; });
   v.vx += (R() - 0.5) * 2; v.vz += (R() - 0.5) * 2;
   if (v === G.car) { hurt(200); }
   // Umgebung
@@ -1076,7 +1077,7 @@ function explode(v) {
 }
 function restoreVehicle(v) {
   if (!v.exploded && !v.burnT) return;
-  v.exploded = false; v.burnT = 0; v.smolderT = 0; v.m.paintMesh.material = paintMat(v.m.color);
+  v.exploded = false; v.burnT = 0; v.smolderT = 0; v.m.paintMesh.material = paintMat(v.m.color); if (v.m.decals) for (const d of v.m.decals) d.visible = true;
   if (v.m.body) v.m.body.traverse(o => { if (o.isMesh && o.material === BURNT && o.userData.paintMat) o.material = o.userData.paintMat; });
 }
 const _engV = new THREE.Vector3();
@@ -1291,17 +1292,35 @@ document.addEventListener('click', e => {
   if (t.dataset.buy) { const k = t.dataset.buy, w = WEAP[k]; if (G.money < w.price) return; G.money -= w.price; moneyPop(-w.price); giveWeapon(k, w.start || 1); AU.sfx.cash(); renderAmmu(); persist(); }
   if (t.dataset.ammo) { const k = t.dataset.ammo, w = WEAP[k], s = INV.slots.find(s => s && s.k === k); if (!s || G.money < w.ammoPrice) return; G.money -= w.ammoPrice; moneyPop(-w.ammoPrice); s.ammo += w.ammoN; AU.sfx.reload(); updateWeaponHud(); renderAmmu(); persistInv(); }
 });
-// Waffen in der Welt (respawnen nach dem Aufheben)
+// Waffen, Munition & Medipacks in der Welt (GTA-Stil, respawnen nach dem Aufheben)
 const WSPAWN = [];
+const AMMO_N = { pistole: 24, uzi: 60, schrotflinte: 8 };
 {
-  const sp = world.contractSpots.slice().sort((a, b) => Math.hypot(a[0] - SPAWN.x, a[1] - SPAWN.z) - Math.hypot(b[0] - SPAWN.x, b[1] - SPAWN.z));
-  [['schlagstock', 2], ['pistole', 6], ['uzi', 24], ['schrotflinte', 48], ['pistole', 75], ['uzi', 110], ['schrotflinte', 140]].forEach(([k, i]) => { const s = sp[Math.min(i, sp.length - 1)]; WSPAWN.push({ k, x: s[0] - 1.4, z: s[1] + 1.4, p: null, t: 0, first: true }); });
+  const r = rng(90210), spots = [];
+  const cand = [...world.contractSpots.map(([x, z]) => [x - 1.4, z + 1.4]), ...world.beachSpots.map(([x, z]) => [x + 3, z - 2]), ...world.parkSpots.map(([x, z]) => [x + 2.5, z + 2.5])];
+  // garantiert: Pistole + Medipack + Munition direkt am Startpunkt
+  const ok = (x, z, md) => !spots.some(s => Math.hypot(s.x - x, s.z - z) < md);
+  const near = cand.slice().sort((a, b) => Math.hypot(a[0] - SPAWN.x, a[1] - SPAWN.z) - Math.hypot(b[0] - SPAWN.x, b[1] - SPAWN.z));
+  const first = near[0] && Math.hypot(near[0][0] - SPAWN.x, near[0][1] - SPAWN.z) < 22 ? near[0] : [SPAWN.x + 3.5, SPAWN.z + 7];
+  spots.push({ kind: 'w:pistole', x: first[0], z: first[1] });
+  for (const [x, z] of near.slice(1, 12)) { if (spots.length >= 4) break; if (ok(x, z, 8) && Math.hypot(x - SPAWN.x, z - SPAWN.z) < 60) spots.push({ kind: spots.length === 1 ? 'w:schlagstock' : spots.length === 2 ? 'ammo' : 'health', x, z }); }
+  const shuffled = cand.slice().sort(() => r() - 0.5);
+  const WK = ['pistole', 'pistole', 'pistole', 'schlagstock', 'schlagstock', 'uzi', 'uzi', 'schrotflinte', 'schrotflinte'];
+  for (const [x, z] of shuffled) {
+    if (spots.length >= 90) break;
+    if (!ok(x, z, 14)) continue;
+    const q = r(), kind = q < 0.46 ? 'w:' + WK[Math.floor(r() * WK.length)] : q < 0.74 ? 'ammo' : 'health';
+    spots.push({ kind, x, z });
+  }
+  for (const sp of spots) WSPAWN.push({ ...sp, p: null, t: 0, first: true });
 }
+function pickupAmount(kind) { return kind.startsWith('w:') ? (WEAP[kind.slice(2)].start || 1) : kind === 'ammo' ? 1 : 50; }
 function stepWeaponSpawns(dt) {
   for (const w of WSPAWN) {
     if (w.p && pickups.includes(w.p)) continue;
-    w.p = null; w.t -= dt;
-    if (w.t <= 0 && (w.first || Math.hypot(w.x - player.x, w.z - player.z) > 40)) { w.first = false; w.p = dropPickup('w:' + w.k, w.x, w.z, WEAP[w.k].start || 1, 1e9); w.t = 90; }
+    if (w.p) { w.p = null; w.t = rand(60, 90); }
+    w.t -= dt;
+    if (w.t <= 0 && (w.first || Math.hypot(w.x - player.x, w.z - player.z) > 25)) { w.first = false; w.p = dropPickup(w.kind, w.x, w.z, pickupAmount(w.kind), 1e9); w.p.world = true; }
   }
 }
 
@@ -1529,6 +1548,7 @@ function nearestEnterable() {
 function enterExit() {
   if (G.deadT > 0) return;
   AU.initAudio();
+  if (!G.car && swapPick && swapWeaponPickup()) return;
   if (G.car) {
     const v = G.car, sp = Math.hypot(v.vx, v.vz);
     if (sp > 7) { help('Zum Aussteigen erst langsamer werden.'); return; }
@@ -1681,13 +1701,52 @@ function makePickupMesh(kind) {
     const b = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.19, 0.29), new THREE.MeshBasicMaterial({ color: 0xffffff })); b.position.y = 0.6; grp.add(b);
   } else if (kind.startsWith('w:')) {
     const k = kind.slice(2), m = weaponModel(k), g = new THREE.Group();
-    m.scale.setScalar(k === 'schrotflinte' ? 1.15 : k === 'schlagstock' ? 1.6 : 2.0); m.rotation.set(0, Math.PI / 2, k === 'schlagstock' ? 0 : -0.15); g.add(m); g.position.y = 1.0; grp.add(g);
+    m.scale.setScalar(k === 'schrotflinte' ? 1.25 : k === 'schlagstock' ? 1.7 : 2.3); m.rotation.set(0, Math.PI / 2, k === 'schlagstock' ? 0 : -0.15); g.add(m); g.position.y = 1.0; grp.add(g);
+  } else if (kind === 'ammo') {
+    const g = new THREE.Group(), M = pkMats();
+    const box = new THREE.Mesh(PKG.ammo, M.ammo); box.castShadow = true; g.add(box); g.position.y = 0.8; grp.add(g);
   } else if (kind === 'health') {
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.42, 16), new THREE.MeshStandardMaterial({ color: 0xE20074, metalness: 0.7, roughness: 0.25, emissive: 0x500028 })); m.position.y = 0.8; grp.add(m);
+    const g = new THREE.Group(), M = pkMats();
+    const box = new THREE.Mesh(PKG.med, M.med); box.castShadow = true; g.add(box);
+    const h = new THREE.Mesh(PKG.handle, M.handle); h.position.y = 0.2; g.add(h); g.position.y = 0.8; grp.add(g);
   }
-  const ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.75, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: kind.startsWith('w:') ? new THREE.Color(2.6, 1.2, 0.15) : kind === 'cash' ? new THREE.Color(0.5, 2.2, 0.8) : kind === 'health' ? new THREE.Color(2.5, 0.6, 1.4) : new THREE.Color(2.6, 0.2, 1.3), transparent: true, opacity: 0.85, depthWrite: false }));
-  ring.position.y = 0.17; grp.add(ring);
+  const col = pkColor(kind), M = pkMats();
+  const ring = new THREE.Mesh(PKG.ring, M.ring[col]); ring.position.y = 0.06; grp.add(ring);
+  if (kind.startsWith('w:') || kind === 'ammo' || kind === 'health') { const beam = new THREE.Mesh(PKG.beam, M.beam[col]); beam.position.y = 1.6; beam.renderOrder = 4; grp.add(beam); }
   return grp;
+}
+// Gemeinsame Geometrien/Materialien der Pickups (billig, auch auf NIEDRIG)
+const PKG = {
+  ring: new THREE.RingGeometry(0.5, 0.78, 36).rotateX(-Math.PI / 2),
+  beam: new THREE.CylinderGeometry(0.3, 0.5, 3.2, 20, 1, true),
+  ammo: new THREE.BoxGeometry(0.56, 0.34, 0.36), med: new THREE.BoxGeometry(0.6, 0.4, 0.3), handle: new THREE.BoxGeometry(0.26, 0.05, 0.08),
+};
+function pkColor(kind) {
+  if (kind === 'w:schlagstock') return 'orange';
+  if (kind.startsWith('w:')) return 'blue';
+  return kind === 'ammo' ? 'yellow' : kind === 'health' ? 'green' : kind === 'cash' ? 'cash' : 'pink';
+}
+let PKM = null;
+function pkMats() {
+  if (PKM) return PKM;
+  const C = { blue: [0.25, 0.9, 3.2], orange: [3.0, 1.15, 0.12], yellow: [2.8, 2.2, 0.15], green: [0.3, 2.8, 0.7], cash: [0.5, 2.2, 0.8], pink: [2.6, 0.2, 1.3] };
+  const grad = canvas(4, 128), g = grad.getContext('2d'), lg = g.createLinearGradient(0, 0, 0, 128);
+  lg.addColorStop(0, 'rgba(255,255,255,0)'); lg.addColorStop(0.55, 'rgba(255,255,255,.35)'); lg.addColorStop(1, 'rgba(255,255,255,.9)');
+  g.fillStyle = lg; g.fillRect(0, 0, 4, 128);
+  const gt = new THREE.CanvasTexture(grad);
+  PKM = { ring: {}, beam: {} };
+  for (const k in C) {
+    const c = new THREE.Color(...C[k]);
+    PKM.ring[k] = new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending });
+    PKM.beam[k] = new THREE.MeshBasicMaterial({ color: c.clone().multiplyScalar(0.45), map: gt, opacity: 0.6, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false });
+  }
+  const label = (bg, draw) => { const cv = canvas(256, 128), x = cv.getContext('2d'); x.fillStyle = bg; x.fillRect(0, 0, 256, 128); draw(x); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t; };
+  const ammoT = label('#5d5a2a', x => { x.fillStyle = '#f2c230'; x.fillRect(0, 0, 256, 18); x.fillRect(0, 110, 256, 18); for (let i = 0; i < 5; i++) { const bx = 40 + i * 38; x.fillStyle = '#d9a63a'; x.fillRect(bx, 50, 20, 48); x.fillStyle = '#b87a2a'; x.beginPath(); x.moveTo(bx, 50); x.lineTo(bx + 10, 30); x.lineTo(bx + 20, 50); x.fill(); } x.fillStyle = '#fff'; x.font = '900 22px Arial'; x.textAlign = 'center'; x.fillText('MUNITION', 128, 120 - 8); });
+  const medT = label('#f4f6f2', x => { x.fillStyle = '#e0141e'; x.fillRect(108, 22, 40, 84); x.fillRect(86, 44, 84, 40); x.fillStyle = '#2bbf4a'; x.fillRect(0, 0, 256, 10); x.fillRect(0, 118, 256, 10); });
+  PKM.ammo = new THREE.MeshStandardMaterial({ map: ammoT, roughness: 0.6, metalness: 0.2, emissive: 0x302808, emissiveMap: ammoT, emissiveIntensity: 0.6 });
+  PKM.med = new THREE.MeshStandardMaterial({ map: medT, roughness: 0.4, emissive: 0xffffff, emissiveMap: medT, emissiveIntensity: 0.35 });
+  PKM.handle = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5 });
+  return PKM;
 }
 function dropPickup(kind, x, z, n, life = 60) {
   for (let k = 0; k < 3 && circleHit(x, z, 0.9, _hit); k++) { x += _hit.x; z += _hit.z; }
@@ -1701,7 +1760,6 @@ function spawnContracts() {
     const spots = world.contractSpots.filter(([x, z]) => { const d = Math.hypot(x - player.x, z - player.z); return d > 25 && d < 260 && !pickups.some(p => Math.hypot(p.x - x, p.z - z) < 5); });
     if (!spots.length) break; const [x, z] = pick(R, spots); dropPickup('contract', x, z, 1, 1e9);
   }
-  if (pickups.filter(p => p.kind === 'health').length < 4) { const [x, z] = pick(R, world.contractSpots); dropPickup('health', x + 1.5, z, 1, 1e9); }
 }
 function randomTariff() {
   const list = TARIFFS.filter(t => CATEGORIES[t.cat].brand === 'telekom');
@@ -1717,20 +1775,41 @@ function addContracts(n, src) {
   persist();
 }
 function addMoney(c, why, at) { G.money += c; G.stats.earned += Math.max(0, c); AU.sfx.cash(); moneyPop(c); if (at) popup(at, (c >= 0 ? '+' : '') + fmtEURc(c), 'money'); persist(); }
+let swapPick = null;
+function addAmmoBox() {
+  const cur = curSlot(), s = cur && isGun(cur.k) ? cur : INV.slots.find(s => s && isGun(s.k));
+  const n = AMMO_N[s.k]; s.ammo += n; AU.sfx.reload(); updateWeaponHud(); persistInv();
+  help(`Munition aufgenommen: ${WEAP[s.k].name} +${n} Schuss`, 2.5);
+}
+function swapWeaponPickup() {
+  if (!swapPick || G.car) return false;
+  const p = swapPick.p, k = pickups.indexOf(p); if (k < 0) return false;
+  giveWeapon(p.kind.slice(2), p.n); scene.remove(p.mesh); pickups.splice(k, 1); swapPick = null; return true;
+}
 function stepPickups(dt) {
+  swapPick = null;
+  if (PKM) { const o = lerp(0.42, 0.85, TOD.nightF || 0); for (const k in PKM.beam) PKM.beam[k].opacity = o; }
   for (let k = pickups.length - 1; k >= 0; k--) {
     const p = pickups[k]; p.t += dt; p.life -= dt;
     const m = p.mesh, d = Math.hypot(p.x - player.x, p.z - player.z);
-    m.visible = d < 160;
-    if (m.visible) { m.children[0].rotation.y = p.t * 1.8; m.children[0].position.y = (p.kind === 'cash' ? 0.6 : p.kind === 'health' ? 0.8 : 1.0) + Math.sin(p.t * 2.4) * 0.12; if (m.children[1] && p.kind === 'clipboard') { m.children[1].rotation.y = p.t * 1.8; m.children[1].position.y = m.children[0].position.y; } }
+    m.visible = d < (Q.dens < 0.6 ? 120 : 170);
+    if (m.visible) { m.children[0].rotation.y = p.t * 1.8; m.children[0].position.y = (p.kind === 'cash' ? 0.6 : p.kind === 'health' || p.kind === 'ammo' ? 0.85 : 1.05) + Math.sin(p.t * 2.4) * 0.12;
+      const rg = m.children[m.children.length - (m.children.length > 2 && (p.world || p.kind === 'ammo' || p.kind === 'health' || p.kind.startsWith('w:')) ? 2 : 1)]; if (rg) rg.scale.setScalar(1 + Math.sin(p.t * 3) * 0.08); if (m.children[1] && p.kind === 'clipboard') { m.children[1].rotation.y = p.t * 1.8; m.children[1].position.y = m.children[0].position.y; } }
     const reach = G.car ? 2.8 : 1.3, wpn = p.kind.startsWith('w:');
     if (p.noPick > 0 && d > 1.8) p.noPick = 0;
-    if (d < reach && G.deadT <= 0 && !(p.kind === 'health' && G.health >= 100) && !(wpn && (G.car || p.noPick > 0))) {
+    if (wpn && d < 1.6 && !G.car && G.deadT <= 0 && !(p.noPick > 0) && INV.slots.every(Boolean) && !INV.slots.some(s => s.k === p.kind.slice(2))) {
+      // Inventar voll: nicht automatisch tauschen, sondern anbieten (F / 🔄)
+      if (!swapPick || d < swapPick.d) swapPick = { p, d };
+      continue;
+    }
+    if (p.kind === 'ammo' && d < reach && !G.car && !INV.slots.some(s => s && isGun(s.k))) { if (G.time - (p.hintT || -9) > 4) { p.hintT = G.time; help('Munition – dafür brauchst du erst eine Schusswaffe.', 2.5); } continue; }
+    if (d < reach && G.deadT <= 0 && !(p.kind === 'health' && G.health >= 100) && !((wpn || p.kind === 'ammo') && (G.car || p.noPick > 0))) {
       if (wpn) giveWeapon(p.kind.slice(2), p.n); else
+      if (p.kind === 'ammo') addAmmoBox(); else
       if (p.kind === 'contract') addContracts(1, 'Glasfaser-Vertrag');
       else if (p.kind === 'clipboard') { addContracts(p.n, 'D2D-Klemmbrett'); G.mstate.clipboards = (G.mstate.clipboards || 0) + 1; }
       else if (p.kind === 'cash') addMoney(p.n, 'Bargeld', p);
-      else if (p.kind === 'health') { G.health = Math.min(100, G.health + 50); AU.sfx.pickup(); help('Magenta Mate! +50 Gesundheit'); }
+      else if (p.kind === 'health') { const h0 = G.health; G.health = Math.min(100, G.health + 50); AU.sfx.pickup(); flash('contract'); help(`Medipack: +${Math.round(G.health - h0)} Gesundheit`, 2.5); }
       scene.remove(m); pickups.splice(k, 1); continue;
     }
     if (p.life <= 0) { scene.remove(m); pickups.splice(k, 1); }
@@ -1924,8 +2003,9 @@ function updateHUD() {
   // Kontext-Taste
   let act = '';
   if (G.car) act = 'AUSSTEIGEN';
+  else if (swapPick) act = 'TAUSCHEN: ' + WEAP[swapPick.p.kind.slice(2)].name.toUpperCase();
   else { const v = nearestEnterable(); if (v) act = v.driver === 'ai' || v.driver === 'cop' ? 'AUTO KLAUEN' : 'EINSTEIGEN'; }
-  $('bEnter').textContent = act ? (isTouch ? (G.car ? '🚪' : '🚗') + ' ' + act : '') : '';
+  $('bEnter').textContent = act ? (isTouch ? (G.car ? '🚪' : swapPick ? '🔄' : '🚗') + ' ' + act : '') : '';
   $('bEnter').classList.toggle('hide', !act);
   $('keyHint').textContent = !isTouch && act ? `F – ${act}` : '';
   const robbing = ctx.rob && !G.car;
@@ -1969,6 +2049,7 @@ function blipList() {
   for (const v of vehicles) if (v.police && v.driver === 'cop' && G.wanted > 0) L.push({ x: v.x, z: v.z, t: 'cop' });
   for (const p of peds) if (p.kind === 'ranger' && p.state !== 'down') L.push({ x: p.x, z: p.z, t: 'ranger' });
   for (const p of pickups) if (p.kind === 'contract' || p.kind === 'clipboard') L.push({ x: p.x, z: p.z, t: 'contract' });
+    else if (SAVE.mmPick !== false && (p.kind === 'ammo' || p.kind === 'health' || p.kind.startsWith('w:'))) L.push({ x: p.x, z: p.z, t: 'pk', c: pkColor(p.kind) });
   return L;
 }
 function drawBlip(g, b, x, y, s) {
@@ -1977,6 +2058,11 @@ function drawBlip(g, b, x, y, s) {
   else if (b.t === 'spray') { g.fillStyle = '#19c6e6'; g.fillRect(x - 6 * s, y - 6 * s, 12 * s, 12 * s); g.fillStyle = '#fff'; g.font = `900 ${9 * s}px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('L', x, y + 0.5 * s); }
   else if (b.t === 'cop') { g.fillStyle = (G.time * 4 | 0) % 2 ? '#ff2a2a' : '#2a6aff'; g.beginPath(); g.arc(x, y, 5 * s, 0, 7); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 1.5 * s; g.stroke(); }
   else if (b.t === 'ranger') { g.fillStyle = '#d4ff1a'; g.beginPath(); g.arc(x, y, 4 * s, 0, 7); g.fill(); g.strokeStyle = '#333'; g.lineWidth = 1 * s; g.stroke(); }
+  else if (b.t === 'pk') {
+    const col = { blue: '#3aa8ff', orange: '#ff8a1a', yellow: '#ffd21a', green: '#2fd65a' }[b.c] || '#fff';
+    g.fillStyle = '#10121a'; g.beginPath(); g.arc(x, y, 4.2 * s, 0, 7); g.fill(); g.fillStyle = col; g.beginPath(); g.arc(x, y, 3.2 * s, 0, 7); g.fill();
+    if (b.c === 'green') { g.fillStyle = '#fff'; g.fillRect(x - 0.6 * s, y - 2 * s, 1.2 * s, 4 * s); g.fillRect(x - 2 * s, y - 0.6 * s, 4 * s, 1.2 * s); }
+  }
   else if (b.t === 'contract') { g.fillStyle = '#fff'; g.fillRect(x - 2.5 * s, y - 3.2 * s, 5 * s, 6.4 * s); g.fillStyle = '#E20074'; g.fillRect(x - 2.5 * s, y - 3.2 * s, 5 * s, 1.6 * s); }
 }
 function drawMinimap() {
@@ -2211,7 +2297,7 @@ function render(dt) {
     sunL.target.position.copy(shadowTarget); sunL.position.copy(shadowTarget).addScaledVector(L, 200);
   }
   sky.dome && sky.dome.position.set(camera.position.x, 0, camera.position.z);
-  for (const v of vehicles) { const lit = TOD.lampF > 0.05, dc = distToCam(v); v.m.root.visible = dc < Q.carVis || v === G.car; v.m.beam.visible = lit && dc < 120; if (v.m.lodG) { setCarLod(v.m, dc > Q.carLod && v !== G.car); if (v.m.lod && v.m.lodPaint.material !== v.m.paintMesh.material) v.m.lodPaint.material = v.m.paintMesh.material; } }
+  for (const v of vehicles) { const lit = TOD.lampF > 0.05, dc = distToCam(v); v.m.root.visible = dc < Q.carVis || v === G.car; v.m.beam.visible = lit && dc < 120; if (v.m.v2) setCarLod(v.m, dc > Q.carLod * 1.5 && v !== G.car); else if (v.m.lodG) { setCarLod(v.m, dc > Q.carLod && v !== G.car); if (v.m.lod && v.m.lodPaint.material !== v.m.paintMesh.material) v.m.lodPaint.material = v.m.paintMesh.material; } }
   sharedMats().beam.opacity = TOD.lampF * lerp(0.5, 0.18, TOD.dayF);
   renderer.info.reset();
   composer.render();
@@ -2267,6 +2353,7 @@ Object.assign(window.__mv, {
   nearestEnterable, shops: world.shops, punch: () => { inp.punch = true; },
   W, INV, WEAP, giveWeapon, selectSlot, cycleWeapon, openWheel, closeWheel, fireWeapon, toggleLock, spawnPed, bloodPool, explode, damageVehicle, rangerAggro, AU, TL, AMB_SPOTS, openAmmu, closeAmmu, stepRangerz: () => { rangerCD = 0; rangerTick = 0; }, rangerPause: s => { rangerCD = s; }, setBlood: b => { BLOOD = b; }, blood: () => BLOOD,
   dbgParts: () => [PADD.list.length, PNORM.list.length, PADD.list.slice(0, 3).map(q => [+q.x.toFixed(1), +q.y.toFixed(1), +q.z.toFixed(1), +q.t.toFixed(2), q.life])],
+  WSPAWN, swapPick: () => swapPick, enterExit2: () => enterExit(),
   sim: (sec, dt = 1 / 30) => { for (let t = 0; t < sec; t += dt) { G.time += dt; step(dt); } },
   spawnVehicle, placeOnRoad, setAI, quality: k => applyQuality(k), fps: () => fpsShown, pr: () => pr,
   state: () => ({ mode: G.car ? 'car' : 'foot', car: G.car && G.car.kind, speed: G.car ? +(G.car.speed || 0).toFixed(2) : 0, wanted: G.wanted, money: G.money, contracts: G.contracts.length, health: G.health, cops: vehicles.filter(v => v.police && v.driver === 'cop').length, mission: G.mission, mstep: G.mstep, x: +player.x.toFixed(1), z: +player.z.toFixed(1), robT: ctx.robT, deadT: G.deadT }),

@@ -2,7 +2,7 @@
 // Zur Laufzeit: Teile pro Material zusammenfassen (wenige Draw-Calls), Räder als eigene Drehgruppen.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { ASSETS } from './assets.js?v=20261031-2130';
+import { ASSETS } from './assets.js?v=20261031-2315';
 
 const tpl = {};
 function safeMerge(arr) {
