@@ -6,19 +6,23 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
-import { clamp, lerp, smooth, rng, pick, angDiff, canvas, tex, signTex, drawT, fitText, FONT, setAniso, fmtEUR, fmtEURc, radialTex, roundRect, drawHeko, HEKO_RATIO } from './util.js?v=20261031-2315';
-import { world, buildWorld, buildSky, updateTOD, TOD, GRID, RHW, PED_OFF, LAND, ISLAND, CAUSE, BEACH_X, DEEP_X, BRANDS, circleHit, queryColliders, lineBlocked, surfaceY, isDeep, onLand, sky } from './world.js?v=20261031-2315';
-import { makeVehicle, makeCharacter, poseCharacter, setDriver, VTYPES, paintMat, sharedMats, setDetail, setCarLod } from './models.js?v=20261031-2315';
-import * as AU from './audio.js?v=20261031-2315';
-import { loadAssets, ASSETS } from './assets.js?v=20261031-2315';
-import { humanAvailable, makeHuman, animateHuman, setHumanWeapon, muzzleWorld, setHumanShadow, weaponModel } from './people.js?v=20261031-2315';
-import { TARIFFS, CATEGORIES } from './tarife.js?v=20261031-2315';
+import { clamp, lerp, smooth, rng, pick, angDiff, canvas, tex, signTex, drawT, fitText, FONT, setAniso, fmtEUR, fmtEURc, radialTex, roundRect, drawHeko, HEKO_RATIO } from './util.js?v=20261101-1000';
+import { world, buildWorld, buildSky, updateTOD, TOD, GRID, RHW, PED_OFF, LAND, ISLAND, CAUSE, BEACH_X, DEEP_X, BRANDS, circleHit, queryColliders, lineBlocked, surfaceY, isDeep, onLand, sky } from './world.js?v=20261101-1000';
+import { makeVehicle, makeCharacter, poseCharacter, setDriver, VTYPES, paintMat, sharedMats, setDetail, setCarLod } from './models.js?v=20261101-1000';
+import * as AU from './audio.js?v=20261101-1000';
+import { loadAssets, ASSETS } from './assets.js?v=20261101-1000';
+import { humanAvailable, makeHuman, animateHuman, setHumanWeapon, muzzleWorld, setHumanShadow, weaponModel } from './people.js?v=20261101-1000';
+import { TARIFFS, CATEGORIES } from './tarife.js?v=20261101-1000';
 
-export const VERSION = '20261031-2315';
+export const VERSION = '20261101-1000';
 const $ = id => document.getElementById(id);
 const PARAMS = new URLSearchParams(location.search);
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 const isMobile = isTouch || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+// iOS/iPadOS (Safari, DuckDuckGo, Chrome iOS – alle WebKit)
+const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) || PARAMS_IOS();
+function PARAMS_IOS() { try { return new URLSearchParams(location.search).has('ios'); } catch (e) { return false; } }
+const DEBUG = /[?&]debug\b/.test(location.search);
 const TEST = PARAMS.has('test');
 document.body.classList.toggle('touch', isTouch);
 const R = rng(Date.now() & 0xffffff);
@@ -38,11 +42,43 @@ if (qSel !== 'auto' && !QUALITY[qSel]) qSel = 'auto';
 let qKey = qSel === 'auto' ? autoQ() : qSel;
 let Q = QUALITY[qKey];
 let DPR = window.devicePixelRatio || 1;
-let pr = PARAMS.has('pr') ? +PARAMS.get('pr') : Math.min(DPR, Q.maxPR);
+const maxPRx = () => isIOS ? Math.min(Q.maxPR, 2) : Q.maxPR; // iOS: DPR 3 nie voll rendern (Speicher → Kontextverlust)
+let pr = PARAMS.has('pr') ? +PARAMS.get('pr') : Math.min(DPR, maxPRx());
 const fixedPR = PARAMS.has('pr');
 
 const glCanvas = $('gl');
-const renderer = new THREE.WebGLRenderer({ canvas: glCanvas, antialias: false, powerPreference: 'high-performance', stencil: false });
+const renderer = new THREE.WebGLRenderer({ canvas: glCanvas, antialias: false, powerPreference: isIOS ? 'default' : 'high-performance', stencil: false });
+// Halbfloat-Farbpuffer nur, wenn wirklich renderbar (sonst 8 Bit)
+const HALF_OK = (() => { try { const e = renderer.extensions; return e.has('EXT_color_buffer_float') || e.has('EXT_color_buffer_half_float'); } catch (er) { return false; } })();
+const DBG = { resizes: 0, prChanges: 0, ctxLost: 0, nanCam: 0, lastResize: '' };
+// WebGL-Kontextverlust (iOS bei Speicherdruck): anhalten, Hinweis, nach Wiederherstellung Effekte neu aufbauen
+let ctxLost = false, ctxMsg = null, ctxTimer = 0;
+function ctxNote(txt, reload) {
+  if (!ctxMsg) { ctxMsg = document.createElement('div'); ctxMsg.id = 'ctxMsg'; ctxMsg.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;background:rgba(11,6,20,.92);color:#fff;font:700 18px system-ui,sans-serif;text-align:center;padding:20px'; document.body.appendChild(ctxMsg); }
+  ctxMsg.innerHTML = `<div>${txt}</div>` + (reload ? '<button style="font:800 16px system-ui;padding:12px 22px;border-radius:12px;border:0;background:#E20074;color:#fff">Neu laden</button>' : '');
+  const btn = ctxMsg.querySelector('button'); if (btn) btn.onclick = () => location.reload();
+  ctxMsg.style.display = txt ? 'flex' : 'none';
+}
+glCanvas.addEventListener('webglcontextlost', e => {
+  e.preventDefault(); ctxLost = true; DBG.ctxLost++; ctxNote('Grafik wird wiederhergestellt …');
+  clearTimeout(ctxTimer); ctxTimer = setTimeout(() => { if (ctxLost) ctxNote('Die Grafikkarte wurde zurückgesetzt (zu wenig Speicher).<br>Tipp: Grafik im Menü auf NIEDRIG stellen.', true); }, 3500);
+}, false);
+glCanvas.addEventListener('webglcontextrestored', () => {
+  ctxLost = false; clearTimeout(ctxTimer); ctxNote('');
+  try { composer.dispose?.(); setupComposer(); onResize(true); } catch (e) { ctxNote('Grafik konnte nicht wiederhergestellt werden.', true); }
+}, false);
+// ?debug: kleine Diagnose-Anzeige
+let dbgEl = null, dbgT = 0, dbgFrames = 0, dbgWorst = 0, dbgPrev = 0;
+function debugOverlay(now) {
+  dbgFrames++; if (dbgPrev) dbgWorst = Math.max(dbgWorst, now - dbgPrev); dbgPrev = now;
+  if (now - dbgT < 500) return;
+  if (!dbgEl) { dbgEl = document.createElement('div'); dbgEl.id = 'mvDebug'; dbgEl.style.cssText = 'position:fixed;left:50%;top:44px;transform:translateX(-50%);z-index:9000;background:rgba(0,0,0,.72);color:#9f9;font:600 11px/1.35 ui-monospace,monospace;padding:5px 8px;border-radius:6px;pointer-events:none;white-space:pre'; document.body.appendChild(dbgEl); }
+  const fps = dbgFrames * 1000 / (now - dbgT || 1), vv = window.visualViewport, gl = renderer.getContext();
+  dbgEl.textContent = `${fps.toFixed(0)} fps (max ${dbgWorst.toFixed(0)} ms) · Auflösung ${pr.toFixed(2)}× (DPR ${DPR}) · ${glCanvas.width}×${glCanvas.height}\n` +
+    `Resizes ${DBG.resizes} · Auflösungswechsel ${DBG.prChanges}${ada.locked ? ' (fixiert)' : ''} · Kontextverlust ${DBG.ctxLost}${gl.isContextLost() ? ' JETZT' : ''} · Kamera-NaN ${DBG.nanCam}\n` +
+    `Viewport ${innerWidth}×${innerHeight} vv ${vv ? Math.round(vv.width) + '×' + Math.round(vv.height) : '-'} · ${qKey.toUpperCase()} · MSAA ${composer.renderTarget1.samples} · ${HALF_OK ? 'HalfFloat' : '8bit'}${isIOS ? ' · iOS' : ''} · ${renderer.info.render.calls} dc`;
+  dbgT = now; dbgFrames = 0; dbgWorst = 0;
+}
 renderer.setPixelRatio(pr);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
@@ -61,10 +97,18 @@ const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.2, 32
 let composer, bloom, renderPass, grade, aoPass = null;
 function setupComposer() {
   const [w, h] = viewSize();
-  const rt = new THREE.WebGLRenderTarget(w * pr, h * pr, { type: THREE.HalfFloatType, samples: isMobile && pr >= 1.75 ? Math.min(2, Q.samples) : Q.samples });
+  // iOS-WebKit: Multisample-Halbfloat-Ziele flackern schwarz → dort kein MSAA (Kanten glättet die hohe Pixeldichte)
+const samples = isIOS || PARAMS.get('msaa') === '0' ? 0 : isMobile && pr >= 1.75 ? Math.min(2, Q.samples) : Q.samples;
+  const rt = new THREE.WebGLRenderTarget(w * pr, h * pr, { type: HALF_OK ? THREE.HalfFloatType : THREE.UnsignedByteType, samples });
   composer = new EffectComposer(renderer, rt);
   composer.setPixelRatio(pr); composer.setSize(w, h);
   renderPass = new RenderPass(scene, camera); composer.addPass(renderPass);
+  // Schutz: NaN/Inf aus Glanzlichtern (Halbfloat-Überlauf auf Mobil-GPUs) würde der Bloom über das ganze Bild verteilen → schwarzes Flackern
+  composer.addPass(new ShaderPass({ uniforms: { tDiffuse: { value: null } }, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: `uniform sampler2D tDiffuse; varying vec2 vUv;
+      void main(){ vec4 c = texture2D(tDiffuse, vUv); vec3 v = c.rgb; float s = v.r + v.g + v.b;
+        bool bad = any(isnan(v)) || any(isinf(v)) || !(s >= 0.0 && s < 1.0e5);
+        gl_FragColor = bad ? vec4(0.0, 0.0, 0.0, 1.0) : vec4(min(v, vec3(48.0)), c.a); }` }));
   aoPass = null;
   if (Q.ao && !isMobile && PARAMS.get('ao') !== '0') {
     aoPass = new GTAOPass(scene, camera, w, h);
@@ -96,7 +140,7 @@ function setupComposer() {
 }
 function applyQuality(k) {
   qSel = k; qKey = k === 'auto' ? autoQ() : k; Q = QUALITY[qKey]; SAVE.quality = k; persist();
-  pr = fixedPR ? pr : Math.min(DPR, Q.maxPR);
+  pr = fixedPR ? pr : Math.min(DPR, maxPRx());
   sunL.shadow.mapSize.set(Q.shadow, Q.shadow); if (sunL.shadow.map) { sunL.shadow.map.dispose(); sunL.shadow.map = null; }
   sc.left = -Q.shadowR; sc.right = Q.shadowR; sc.top = Q.shadowR; sc.bottom = -Q.shadowR; sc.updateProjectionMatrix();
   composer.dispose?.(); setupComposer(); onResize(true);
@@ -109,13 +153,19 @@ function viewSize() {
   return [Math.max(1, w), Math.max(1, h)];
 }
 let lastVW = 0, lastVH = 0, lastPR = 0;
-function onResize(force) {
+let resizePending = 0, resizeForce = false, resizeAt = 0;
+// Größenänderungen nur vormerken; ausgeführt am Anfang des nächsten Frames direkt vor dem Rendern
+// (canvas.width setzen löscht den Puffer – geschieht das nach dem Rendern, sieht man ein schwarzes Bild)
+function onResize(force) { resizePending = 1; if (force === true) resizeForce = true; }
+function applyResize() {
+  const force = resizeForce; resizePending = 0; resizeForce = false;
   const [w, h] = viewSize();
   const d = window.devicePixelRatio || 1;
-  if (d !== DPR) { DPR = d; if (!fixedPR) pr = Math.min(DPR, Q.maxPR); }
-  if (!fixedPR) pr = Math.min(pr, Math.min(DPR, Q.maxPR));
-  if (force !== true && w === lastVW && h === lastVH && pr === lastPR) return;
-  lastVW = w; lastVH = h; lastPR = pr;
+  if (d !== DPR) { DPR = d; if (!fixedPR) pr = Math.min(DPR, maxPRx()); }
+  if (!fixedPR) pr = Math.min(pr, Math.min(DPR, maxPRx()));
+  // ±2 px Zittern (iOS-Adressleiste, Rundung) ignorieren
+  if (force !== true && Math.abs(w - lastVW) <= 2 && Math.abs(h - lastVH) <= 2 && pr === lastPR && lastVW) return;
+  lastVW = w; lastVH = h; lastPR = pr; DBG.resizes++; DBG.lastResize = `${w}×${h}@${pr}`;
   camera.aspect = w / h; camera.updateProjectionMatrix();
   renderer.setPixelRatio(pr); renderer.setSize(w, h, false);
   composer.setPixelRatio(pr); composer.setSize(w, h);
@@ -135,7 +185,7 @@ function resetTouches() {
 let settleRAF = 0;
 function scheduleResize(rotated) {
   if (rotated) resetTouches();
-  onResize();
+  onResize(rotated === true);
   // Mehrfach nachmessen, bis die Größe ~6 Frames stabil ist (max. ~1,5 s)
   cancelAnimationFrame(settleRAF);
   let stable = 0, n = 0, pw = -1, ph = -1;
@@ -710,12 +760,20 @@ function updateCamera(dt) {
     const x = cam.tx + sx - Math.sin(cam.yaw) * cp * s, z = cam.tz + sz - Math.cos(cam.yaw) * cp * s, y = ty + spi * s;
     let blocked = false;
     for (const c of queryColliders(x, z, 0.3)) if (c.h > y - 0.3 && x > c.x0 - 0.3 && x < c.x1 + 0.3 && z > c.z0 - 0.3 && z < c.z1 + 0.3 && c.kind !== 'lamp' && c.kind !== 'palm') { blocked = true; break; }
-    if (blocked) { d = Math.max(1.5, s - 0.4); break; }
+    if (blocked) { d = Math.max(0.9, s - 0.4); break; }
   }
+  // Abstand weich wieder ausfahren (kein Hin- und Herspringen an Kanten), sofort einfahren
+  if (!(cam.cd > 0) || d < cam.cd) cam.cd = d; else cam.cd += (d - cam.cd) * Math.min(1, dt * 4);
+  d = cam.cd;
   const px = cam.tx + sx - Math.sin(cam.yaw) * cp * d, pz = cam.tz + sz - Math.cos(cam.yaw) * cp * d;
   let py = ty + spi * d + (cam.dist - d) * 0.35; py = Math.max(py, surfaceY(px, pz) + 0.4);
   camera.position.set(px, py, pz);
   if (cam.shake > 0) { camera.position.x += (R() - 0.5) * cam.shake * 0.5; camera.position.y += (R() - 0.5) * cam.shake * 0.4; cam.shake = Math.max(0, cam.shake - dt * 2.5); }
+  if (!Number.isFinite(camera.position.x + camera.position.y + camera.position.z + cam.yaw + cam.pitch + cam.tx + cam.ty + cam.tz)) { // NaN-Schutz
+    DBG.nanCam++; cam.yaw = Number.isFinite(cam.yaw) ? cam.yaw : 0; cam.pitch = 0.26; cam.dist = 4.4; cam.cd = 4.4; cam.shake = 0;
+    cam.tx = Number.isFinite(tgt.x) ? tgt.x : SPAWN.x; cam.tz = Number.isFinite(tgt.z) ? tgt.z : SPAWN.z; cam.ty = (Number.isFinite(tgt.y) ? tgt.y : 0) + 1.6;
+    camera.position.set(cam.tx - Math.sin(cam.yaw) * 4.4, cam.ty + 1.2, cam.tz - Math.cos(cam.yaw) * 4.4);
+  }
   camera.lookAt(cam.tx + sx, ty + (inCar ? 0 : 0.05), cam.tz + sz);
   if (TEST && window.__mvCam) { const o = window.__mvCam; camera.position.set(o.p[0], o.p[1], o.p[2]); camera.lookAt(o.l[0], o.l[1], o.l[2]); }
   const fov = inCar ? 62 + clamp(sp / 50, 0, 1) * 16 : 60;
@@ -2187,11 +2245,15 @@ function populate() {
 }
 
 // ---------------------------------------------------------------- Hauptschleife
+const ada = { low: 0, high: 0, lastT: 0, lastDir: 0, flips: 0, locked: false };
 let last = performance.now(), fpsAcc = 0, fpsN = 0, fpsT = 0, fpsShown = 0, recycleT = 0, saveT = 0, missionT = 0, mapT = 0;
 const shadowTarget = new THREE.Vector3();
 function frame(now) {
   requestAnimationFrame(frame);
+  if (ctxLost) return;
   let dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (resizePending) applyResize();
+  if (DEBUG) debugOverlay(now);
   if (TEST && window.__mvFixedDT) dt = window.__mvFixedDT;
   fpsAcc += dt; fpsN++;
   if (!G.started || G.paused) { if (G.started) { composer.render(); } else renderMenuScene(dt); return; }
@@ -2205,11 +2267,16 @@ function frame(now) {
   fpsT += dt;
   if (fpsT > 2.5) {
     const fps = fpsN / fpsAcc; fpsShown = fps; fpsAcc = 0; fpsN = 0; fpsT = 0;
-    if (!fixedPR && !TEST) {
-      let np = pr;
-      if (fps < 40 && pr > Q.minPR) np = Math.max(Q.minPR, pr - 0.25);
-      else if (fps > 57 && pr < Math.min(DPR, Q.maxPR)) np = Math.min(Math.min(DPR, Q.maxPR), pr + 0.25);
-      if (np !== pr) { pr = np; onResize(); }
+    if (!fixedPR && (!TEST || window.__mvAdaptive)) {
+      // Hysterese: runter erst nach 2 schwachen Messungen, rauf erst nach 3 guten; 10 s Pause nach jeder Änderung;
+      // pendelt die Auflösung (≥ 3 Wechsel), bleibt sie auf der niedrigeren Stufe stehen
+      let np = pr; const t = performance.now() / 1000, top = Math.min(DPR, maxPRx());
+      ada.low = fps < 40 ? ada.low + 1 : 0; ada.high = fps > 57 ? ada.high + 1 : 0;
+      if (t - ada.lastT > 10) {
+        if (ada.low >= 2 && pr > Q.minPR) np = Math.max(Q.minPR, pr - 0.25);
+        else if (ada.high >= 3 && pr < top && !ada.locked) np = Math.min(top, pr + 0.25);
+      }
+      if (np !== pr) { if (np > pr && ada.lastDir < 0) ada.flips++; if (np < pr && ada.lastDir > 0) ada.flips++; if (ada.flips >= 3) ada.locked = true; ada.lastDir = np > pr ? 1 : -1; ada.lastT = t; ada.low = ada.high = 0; pr = np; DBG.prChanges++; onResize(); }
     }
     $('fps').textContent = `${Math.round(fps)} fps · ${pr.toFixed(2)}× · ${renderer.info.render.calls} dc`;
   }

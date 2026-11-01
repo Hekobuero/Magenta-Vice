@@ -1,7 +1,7 @@
 // Magenta Vice – Menschen aus echten Modellen (Microsoft Rocketbox, MIT) mit Skelett-Animation
 import * as THREE from 'three';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
-import { ASSETS, PEOPLE } from './assets.js?v=20261031-2315';
+import { ASSETS, PEOPLE } from './assets.js?v=20261101-1000';
 
 const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _v4 = new THREE.Vector3();
 const _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion();

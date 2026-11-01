@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Sky } from 'three/addons/objects/Sky.js';
 import { clamp, lerp, smooth, rng, pick, canvas, tex, roundRect, drawHeko, drawT, fitText, FONT, HEKO_RATIO,
-  roadTex, crossTex, sidewalkTex, barkTex, grassTex, sandTex, waterNormalTex, radialTex, windowTex, signTex, noiseCanvas } from './util.js?v=20261031-2315';
+  roadTex, crossTex, sidewalkTex, barkTex, grassTex, sandTex, waterNormalTex, radialTex, windowTex, signTex, noiseCanvas } from './util.js?v=20261101-1000';
 
 export const GRID = [-240, -160, -80, 0, 80, 160, 240];
 export const RHW = 6;            // halbe Fahrbahnbreite

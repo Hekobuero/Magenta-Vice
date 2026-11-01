@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { signTex, drawT, fitText, FONT, roundRect, canvas, tex } from './util.js?v=20261031-2315';
+import { signTex, drawT, fitText, FONT, roundRect, canvas, tex } from './util.js?v=20261101-1000';
 
 export const V2KINDS = new Set(['sedan', 'taxi', 'police', 'tkvan', 'rivalvan', 'swat', 'tktruck', 'pickup']);
 const M4 = new THREE.Matrix4(), Qt = new THREE.Quaternion(), Vv = new THREE.Vector3(), Sv = new THREE.Vector3(), Eu = new THREE.Euler();

@@ -41,6 +41,8 @@ Statische Seite für GitHub Pages (kein Build-Schritt). Three.js 0.169 kommt per
 - Tageszeit nach echter Ortszeit (Sonnenstand), physikalischer Himmel (Rayleigh/Mie) für Tag und Dämmerung, Sterne/Mond nachts, Straßenlaternen und Neon immer an, nachts nasse spiegelnde Straßen.
 - Spielstand in localStorage, Versionslabel + Cache-Busting (?v=).
 
+- Diagnose: `?debug` an die URL hängen zeigt fps, Render-Auflösung, Anzahl Größenänderungen, Kontextverluste und Puffer-Format.
+
 ## Grafik
 - Volle Geräteauflösung (Handy bis 2×, Desktop bis 2,5×), MSAA-Rendertarget (4×), ACES-Tonemapping, sRGB-Ausgabe, Bloom, Farbkorrektur.
 - PBR: Klarlack-Autolack (MeshPhysical, Clearcoat), spiegelndes Glas, Fassaden mit Rauheits-/Metall- und Normal-Maps, Wasser mit zwei gegenläufigen Normal-Maps und Klarlack-Glanz, Umgebungs-Reflexionen aus dem Himmel (PMREM).
